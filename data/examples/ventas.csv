@@ -1,0 +1,301 @@
+ID_Pedido,Fecha,Producto,Categoría,Cantidad,Total_Venta
+PED-001,2026-03-23,Disco Duro Externo 1TB,Almacenamiento,1.0,60.0
+PED-002,2026-01-15,Disco Duro Externo 1TB,  Almacenamiento ,3.0,180.0
+PED-003,2026-01-04,Webcam HD,Accesorios,3.0,150.0
+PED-004,2026-02-05,Disco Duro Externo 1TB,Almacenamiento,5.0,300.0
+PED-005,2026-02-01,Webcam HD,Accesorios,2.0,100.0
+PED-006,2026-01-29,Auriculares Gamer,Audio,3.0,135.0
+PED-007,2026-01-18,Auriculares Gamer,Audio,1.0,45.0
+PED-008,2026-01-14,Altavoces Bluetooth,Audio,5.0,175.0
+PED-009,2026-03-28,Ratón Inalámbrico,Accesorios,3.0,75.0
+PED-010,2026-03-11,Ratón Inalámbrico,Accesorios,1.0,25.0
+PED-011,,Altavoces Bluetooth,Audio,4.0,140.0
+PED-012,2026-03-17,Silla Ergonómica,Mobiliario,5.0,1000.0
+PED-013,2026-02-24,Teclado Mecánico,Accesorios,1.0,85.0
+PED-014,,Silla Ergonómica,Mobiliario,1.0,200.0
+PED-015,2026-02-31,Teclado Mecánico,Accesorios,1.0,85.0
+PED-016,2026-01-12,Altavoces Bluetooth,Audio,1.0,35.0
+PED-017,2026-01-28,Auriculares Gamer,Audio,4.0,180.0
+PED-018,2026-01-30,"Monitor 24""",Pantallas,5.0,900.0
+PED-019,2026-03-06,Auriculares Gamer,,-1.0,225.0
+PED-020,2026-03-19,Altavoces Bluetooth,Audio,1.0,35.0
+,,Altavoces Bluetooth,Audio,1.0,35.0
+PED-022,2026-03-13,Disco Duro Externo 1TB,Almacenamiento,5.0,300.0
+PED-023,2026-01-26,Altavoces Bluetooth,AUDIO,5.0,175.0
+PED-024,2026-03-25,Memoria USB 64GB,Almacenamiento,3.0,45.0
+PED-025,2026-03-31,Auriculares Gamer,Audio,3.0,135.0
+PED-026,2026-03-11,Auriculares Gamer,Audio,3.0,135.0
+PED-027,29/01/2026,Disco Duro Externo 1TB,Almacenamiento,2.0,120.0
+PED-028,2026-01-29,Computadora Portátil,Equipos,4.0,
+PED-029,2026-02-27,Memoria USB 64GB,Almacenamiento,1.0,15.0
+PED-030,2026-03-17,Ratón Inalámbrico,Accesorios,4.0,100.0
+PED-031,2026-02-05,Altavoces Bluetooth,Audio,5.0,175.0
+PED-032,2026-01-01,"Monitor 24""",Pantallas,1.0,180.0
+PED-033,2026-01-21,Silla Ergonómica,Mobiliario,2.0,400.0
+PED-034,2026-03-31,Silla Ergonómica,Mobiliario,3.0,600.0
+PED-035,2026-02-24,Teclado Mecánico,Accesorios,3.0,255.0
+PED-036,2026-02-13,"Monitor 24""",  Pantallas ,2.0,360.0
+PED-073,2026-02-28,Teclado Mecánico,Accesorios,3.0,255.0
+PED-038,2026-01-20,Teclado Mecánico,Accesorios,4.0,340.0
+PED-039,2026-01-28,Silla Ergonómica,Mobiliario,3.0,600.0
+PED-040,2026-02-13,Altavoces Bluetooth,Audio,5.0,175.0
+PED-041,2026-01-14,Ratón Inalámbrico,Accesorios,5.0,125.0
+,2026-01-12,Computadora Portátil,Equipos,1.0,750.0
+PED-043,2026-02-18,Teclado Mecánico,Accesorios,3.0,255.0
+PED-044,2026-01-13,"Monitor 24""",Pantallas,1.0,180.0
+PED-045,2026-02-15,Silla Ergonómica,Mobiliario,2.0,400.0
+PED-046,2026-02-14,Computadora Portátil,Equipos,3.0,2250.0
+PED-047,,,Audio,2.0,70.0
+PED-048,2026-02-03,Memoria USB 64GB,Almacenamiento,2.0,30.0
+PED-049,2026-01-06,Computadora Portátil,Equipos,5.0,3750.0
+PED-050,2026-02-28,Webcam HD,Accesorios,3.0,150.0
+PED-051,2026-03-10,Ratón Inalámbrico,Accesorios,1.0,25.0
+PED-052,2026-01-16,Disco Duro Externo 1TB,Almacenamiento,3.0,No_Disponible
+PED-053,2026-02-18,Ratón Inalámbrico,Accesorios,1.0,25.0
+PED-054,2026-01-11,Memoria USB 64GB,,2.0,30.0
+PED-055,2026-03-12,Computadora Portátil,Equipos,2.0,1500.0
+PED-056,2026-02-07,Webcam HD,Accesorios,5.0,250.0
+PED-057,2026-03-22,Disco Duro Externo 1TB,Almacenamiento,5.0,300.0
+PED-058,2026-03-21,Ratón Inalámbrico,Accesorios,1.0,25.0
+PED-292,2026-01-31,Auriculares Gamer,Audio,2.0,90.0
+PED-060,2026-03-15,Silla Ergonómica,Mobiliario,,200.0
+PED-061,2026-01-25,Memoria USB 64GB,Almacenamiento,5.0,75.0
+PED-062,2026-04-01,Silla Ergonómica,Mobiliario,2.0,400.0
+PED-063,ERROR_DATE,Disco Duro Externo 1TB,Almacenamiento,2.0,120.0
+,2026-01-06,Ratón Inalámbrico,Accesorios,3.0,75.0
+PED-065,2026-03-26,Memoria USB 64GB,Almacenamiento,-1.0,15.0
+PED-066,2026-01-30,Memoria USB 64GB,Almacenamiento,2.0,30.0
+PED-067,2026-02-07,Auriculares Gamer,Audio,1.0,45.0
+PED-068,ERROR_DATE,Memoria USB 64GB,Almacenamiento,5.0,75.0
+PED-069,2026-01-30,Disco Duro Externo 1TB,Almacenamiento,5.0,300.0
+PED-070,2026-01-13,Teclado Mecánico,  Accesorios ,2.0,170.0
+PED-071,2026-02-18,Teclado Mecánico,Accesorios,2.0,170.0
+PED-072,2026-02-05,Disco Duro Externo 1TB,Almacenamiento,1.0,60.0
+PED-073,2026-02-28,Teclado Mecánico,Accesorios,3.0,255.0
+PED-074,2026-03-23,Disco Duro Externo 1TB,Almacenamiento,2.0,120.0
+PED-075,2026-02-16,Computadora Portátil,Equipos,2.0,1500.0
+PED-076,2026-01-21,"Monitor 24""",Pantallas,4.0,720.0
+PED-077,2026-02-17,Ratón Inalámbrico,  Accesorios ,4.0,100.0
+PED-078,2026-02-15,Auriculares Gamer,Audio,-1.0,90.0
+PED-079,2026-01-27,Webcam HD,Accesorios,3.0,150.0
+PED-080,2026-03-27,Computadora Portátil,Equipos,2.0,1500.0
+PED-081,2026-02-04,Auriculares Gamer,Audio,1.0,45.0
+PED-082,2026-03-31,Auriculares Gamer,Audio,4.0,180.0
+PED-083,2026-03-29,Memoria USB 64GB,,3.0,45.0
+PED-084,2026-03-24,"Monitor 24""",Pantallas,3.0,540.0
+PED-085,2026-01-10,Memoria USB 64GB,Almacenamiento,5.0,75.0
+PED-086,2026-03-19,Disco Duro Externo 1TB,Almacenamiento,5.0,300.0
+PED-087,2026-03-23,Memoria USB 64GB,Almacenamiento,1.0,15.0
+PED-088,2026-01-22,"Monitor 24""",Pantallas,3.0,540.0
+PED-089,2026-03-10,Teclado Mecánico,Accesorios,5.0,425.0
+PED-090,,Computadora Portátil,Equipos,1.0,750.0
+PED-091,2026-01-21,"Monitor 24""",Pantallas,5.0,900.0
+PED-092,2026-03-01,Disco Duro Externo 1TB,Almacenamiento,3.0,180.0
+PED-093,2026-02-18,,Almacenamiento,4.0,60.0
+PED-094,2026-02-04,Altavoces Bluetooth,Audio,5.0,175.0
+PED-095,2026-03-23,"Monitor 24""",Pantallas,4.0,720.0
+PED-096,2026-03-30,Altavoces Bluetooth,Audio,2.0,70.0
+PED-097,2026-03-13,computadora portátil,Equipos,1.0,
+PED-098,2026-01-29,Disco Duro Externo 1TB,Almacenamiento,1.0,60.0
+PED-099,2026-03-29,Silla Ergonómica,Mobiliario,5.0,1000.0
+PED-100,2026-02-11,Auriculares Gamer,Audio,3.0,135.0
+PED-101,2026-01-08,Disco Duro Externo 1TB,Almacenamiento,1.0,60.0
+PED-085,2026-01-10,Memoria USB 64GB,Almacenamiento,5.0,75.0
+PED-103,2026-01-05,Memoria USB 64GB,Almacenamiento,1.0,15.0
+PED-104,2026-02-10,Computadora Portátil,Equipos,5.0,3750.0
+PED-105,01/03/2026,Computadora Portátil,Equipos,4.0,3000.0
+PED-106,2026-02-04,Memoria USB 64GB,Almacenamiento,4.0,60.0
+PED-107,2026-01-09,Computadora Portátil,Equipos,5.0,3750.0
+PED-108,2026-01-28,Teclado Mecánico,Accesorios,2.0,170.0
+PED-109,2026-03-14,Disco Duro Externo 1TB,Almacenamiento,4.0,240.0
+PED-110,2026-02-10,Teclado Mecánico,Accesorios,5.0,425.0
+PED-111,2026-01-28,Altavoces Bluetooth,Audio,3.0,105.0
+PED-112,2026-03-25,Disco Duro Externo 1TB,Almacenamiento,5.0,300.0
+PED-113,2026-03-05,Ratón Inalámbrico,Accesorios,3.0,75.0
+PED-114,2026-02-20,Computadora Portátil,Equipos,2.0,1500.0
+PED-115,2026-03-24,Disco Duro Externo 1TB,Almacenamiento,5.0,300.0
+PED-116,2026-02-28,Altavoces Bluetooth,Audio,3.0,105.0
+PED-117,2026-01-19,Webcam HD,Accesorios,4.0,200.0
+PED-118,,Webcam HD,Accesorios,2.0,100.0
+PED-119,2026-01-18,Silla Ergonómica,Mobiliario,4.0,800.0
+PED-073,2026-02-28,Teclado Mecánico,ACCESORIOS,3.0,255.0
+PED-121,2026-03-13,Computadora Portátil,Equipos,5.0,3750.0
+PED-122,2026-03-10,Altavoces Bluetooth,Audio,3.0,105.0
+PED-123,ERROR_DATE,"Monitor 24""",PANTALLAS,2.0,360.0
+PED-124,2026-03-16,Computadora Portátil,Equipos,2.0,1500.0
+PED-125,2026-02-24,Auriculares Gamer,Audio,2.0,90.0
+PED-126,2026-03-16,Ratón Inalámbrico,Accesorios,1.0,25.0
+PED-127,2026-02-21,Auriculares Gamer,Audio,4.0,180.0
+PED-128,2026-02-16,Altavoces Bluetooth,Audio,1.0,35.0
+PED-129,,Webcam HD,Accesorios,4.0,200.0
+PED-130,2026-01-18,Altavoces Bluetooth,Audio,,70.0
+PED-131,2026-03-07,Disco Duro Externo 1TB,Almacenamiento,4.0,240.0
+PED-132,2026-03-05,Disco Duro Externo 1TB,Almacenamiento,2.0,120.0
+PED-133,2026-01-12,Teclado Mecánico,Accesorios,1.0,85.0
+PED-134,2026-01-07,"Monitor 24""",Pantallas,4.0,720.0
+PED-135,2026-01-15,Auriculares Gamer,Audio,2.0,90.0
+PED-031,2026-02-05,Altavoces Bluetooth,Audio,5.0,175.0
+PED-137,03-24-2026,Ratón Inalámbrico,  Accesorios ,5.0,125.0
+PED-138,,Auriculares Gamer,Audio,1.0,45.0
+PED-139,2026-03-29,Webcam HD,Accesorios,2.0,100.0
+,2026-02-24,Webcam HD,Accesorios,5.0,250.0
+PED-141,2026-03-18,Silla Ergonómica,Mobiliario,5.0,1000.0
+PED-142,2026-01-09,Memoria USB 64GB,  Almacenamiento ,4.0,60.0
+PED-143,2026-02-19,,Audio,5.0,175.0
+PED-144,2026-02-18,Disco Duro Externo 1TB,Almacenamiento,5.0,300.0
+PED-077,2026-02-17,Ratón Inalámbrico,  Accesorios ,4.0,100.0
+PED-146,2026-03-01,Webcam HD,Accesorios,4.0,200.0
+PED-147,2026-03-09,Computadora Portátil,Equipos,2.0,1500.0
+PED-116,2026.04.01,Altavoces Bluetooth,,3.0,105.0
+PED-149,2026-03-12,Webcam HD,Accesorios,2.0,100.0
+PED-150,2026-01-02,Computadora Portátil,Equipos,4.0,3000.0
+PED-151,2026-03-29,"Monitor 24""",Pantallas,3.0,540.0
+PED-152,2026-01-15,Auriculares Gamer,Audio,3.0,135.0
+PED-153,2026-03-29,Memoria USB 64GB,  Almacenamiento ,3.0,45.0
+PED-154,2026-03-10,Silla Ergonómica,Mobiliario,1.0,200.0
+PED-155,2026-02-04,Teclado Mecánico,Accesorios,2.0,170.0
+,2026-03-24,Auriculares Gamer,Audio,4.0,180.0
+PED-157,2026-02-13,Teclado Mecánico,Accesorios,2.0,170.0
+PED-158,2026-01-15,"Monitor 24""",Pantallas,4.0,720.0
+PED-159,2026-02-07,Disco Duro Externo 1TB,Almacenamiento,3.0,180.0
+PED-160,2026-02-25,Silla Ergonómica,Mobiliario,4.0,800.0
+PED-161,2026-01-21,Disco Duro Externo 1TB,Almacenamiento,1.0,60.0
+PED-162,2026-02-28,Auriculares Gamer,Audio,,180.0
+PED-163,2026-01-01,Disco Duro Externo 1TB,ALMACENAMIENTO,5.0,300.0
+PED-164,2026-02-03,Ratón Inalámbrico,Accesorios,5.0,125.0
+PED-165,2026-03-06,disco duro externo 1tb,Almacenamiento,4.0,240.0
+PED-166,2026-01-23,Ratón Inalámbrico,Accesorios,,75.0
+PED-167,2026-03-06,Computadora Portátil,Equipos,4.0,3000.0
+PED-168,2026-01-14,Disco Duro Externo 1TB,Almacenamiento,5.0,300.0
+PED-169,2026-03-22,Silla Ergonómica,,5.0,1000.0
+PED-170,2026-02-08,Auriculares Gamer,Audio,4.0,No_Disponible
+PED-171,2026-03-23,,Audio,3.0,135.0
+PED-172,2026-03-06,Disco Duro Externo 1TB,Almacenamiento,4.0,240.0
+PED-173,2026-03-19,Ratón Inalámbrico,Accesorios,4.0,100.0
+PED-174,2026-01-26,Memoria USB 64GB,Almacenamiento,4.0,60.0
+PED-175,2026-01-20,Teclado Mecánico,  Accesorios ,4.0,340.0
+PED-176,2026-02-17,Teclado Mecánico,Accesorios,5.0,425.0
+PED-177,2026-01-21,silla ergonómica,Mobiliario,1.0,200.0
+PED-178,2026-03-11,Disco Duro Externo 1TB,Almacenamiento,5.0,300.0
+PED-179,2026-03-09,,Audio,1.0,35.0
+PED-180,2026-01-01,"Monitor 24""",Pantallas,4.0,720.0
+PED-181,2026-03-18,Teclado Mecánico,Accesorios,4.0,340.0
+PED-182,2026-02-11,Teclado Mecánico,Accesorios,1.0,85.0
+PED-183,2026-03-04,Computadora Portátil,Equipos,4.0,3000.0
+PED-184,2026-01-03,Memoria USB 64GB,Almacenamiento,2.0,30.0
+PED-185,2026-01-15,Webcam HD,Accesorios,3.0,150.0
+PED-186,ERROR_DATE,Memoria USB 64GB,Almacenamiento,4.0,60.0
+PED-187,2026-02-09,Computadora Portátil,Equipos,4.0,3000.0
+PED-188,2026-01-31,Computadora Portátil,Equipos,1.0,750.0
+PED-189,2026-01-08,Webcam HD,Accesorios,1.0,50.0
+PED-190,2026-01-31,Silla Ergonómica,Mobiliario,1.0,200.0
+PED-191,2026-03-14,Memoria USB 64GB,Almacenamiento,2.0,30.0
+PED-192,2026-01-11,"Monitor 24""",Pantallas,1.0,180.0
+PED-193,2026-01-11,Ratón Inalámbrico,Accesorios,2.0,50.0
+PED-194,2026-03-04,auriculares gamer,Audio,1.0,45.0
+PED-195,2026-01-09,Altavoces Bluetooth,Audio,2.0,70.0
+PED-196,2026-03-10,Auriculares Gamer,AUDIO,2.0,90.0
+PED-197,2026-01-17,Webcam HD,ACCESORIOS,1.0,50.0
+PED-198,2026-01-17,Altavoces Bluetooth,AUDIO,2.0,70.0
+PED-199,2026-03-26,Webcam HD,Accesorios,3.0,150.0
+PED-200,2026-03-02,Memoria USB 64GB,Almacenamiento,2.0,30.0
+PED-201,2026-03-12,Altavoces Bluetooth,Audio,5.0,175.0
+PED-202,2026-01-22,"Monitor 24""",Pantallas,2.0,360.0
+PED-203,2026-02-03,Computadora Portátil,Equipos,1.0,750.0
+PED-204,2026-03-09,Altavoces Bluetooth,Audio,1.0,35.0
+PED-205,2026-03-19,Computadora Portátil,Equipos,5.0,3750.0
+PED-206,2026-02-24,Disco Duro Externo 1TB,,4.0,240.0
+,2026-01-28,Auriculares Gamer,Audio,,45.0
+PED-208,2026-03-11,Altavoces Bluetooth,Audio,2.0,70.0
+PED-209,2026-03-30,"Monitor 24""",Pantallas,3.0,540.0
+PED-210,2026-01-26,,Audio,1.0,35.0
+PED-211,2026-02-09,Altavoces Bluetooth,,1.0,35.0
+PED-212,2026-02-21,Memoria USB 64GB,Almacenamiento,5.0,
+PED-213,2026-03-27,Disco Duro Externo 1TB,  Almacenamiento ,3.0,180.0
+PED-214,2026-03-25,"Monitor 24""",Pantallas,5.0,900.0
+PED-215,2026-02-17,Memoria USB 64GB,Almacenamiento,1.0,15.0
+PED-216,2026-02-26,Disco Duro Externo 1TB,Almacenamiento,4.0,240.0
+PED-217,2026-03-08,"Monitor 24""",Pantallas,4.0,720.0
+PED-158,2026-01-15,"Monitor 24""",Pantallas,4.0,720.0
+PED-219,2026-01-16,Teclado Mecánico,Accesorios,4.0,340.0
+PED-220,2026-02-01,Teclado Mecánico,Accesorios,5.0,425.0
+PED-221,2026-01-29,Computadora Portátil,Equipos,5.0,3750.0
+,2026-01-09,Silla Ergonómica,Mobiliario,4.0,800.0
+PED-223,2026-02-13,Webcam HD,Accesorios,4.0,200.0
+PED-224,2026-01-03,,Audio,3.0,105.0
+,2026-02-31,Memoria USB 64GB,Almacenamiento,2.0,30.0
+PED-226,2026-03-12,"Monitor 24""",Pantallas,3.0,No_Disponible
+PED-227,22/02/2026,,Accesorios,2.0,100.0
+PED-228,2026-03-17,Webcam HD,Accesorios,5.0,250.0
+PED-229,2026-01-29,Altavoces Bluetooth,  Audio ,4.0,140.0
+PED-230,2026-01-01,Memoria USB 64GB,Almacenamiento,1.0,15.0
+PED-231,2026-01-10,Webcam HD,Accesorios,3.0,150.0
+PED-232,2026-04-01,Teclado Mecánico,Accesorios,4.0,340.0
+PED-137,2026-03-22,Ratón Inalámbrico,,5.0,125.0
+PED-234,2026-01-08,computadora portátil,Equipos,3.0,2250.0
+PED-235,2026-01-30,Computadora Portátil,Equipos,5.0,3750.0
+PED-236,2026-01-09,Computadora Portátil,Equipos,5.0,3750.0
+PED-237,2026-01-05,Ratón Inalámbrico,Accesorios,5.0,
+PED-238,2026-02-12,Auriculares Gamer,Audio,1.0,45.0
+PED-239,2026-01-10,Auriculares Gamer,Audio,4.0,180.0
+,2026-03-07,Webcam HD,Accesorios,5.0,250.0
+PED-241,2026-01-31,,Audio,4.0,180.0
+PED-242,2026-02-05,Webcam HD,Accesorios,4.0,200.0
+PED-243,2026-03-27,Ratón Inalámbrico,ACCESORIOS,1.0,25.0
+PED-244,2026-03-04,Computadora Portátil,Equipos,2.0,1500.0
+PED-245,2026-01-28,Disco Duro Externo 1TB,Almacenamiento,2.0,120.0
+PED-246,2026-03-11,Computadora Portátil,Equipos,5.0,3750.0
+PED-247,2026-01-17,Memoria USB 64GB,Almacenamiento,4.0,60.0
+PED-248,2026-03-15,silla ergonómica,Mobiliario,5.0,1000.0
+PED-249,03-02-2026,Memoria USB 64GB,Almacenamiento,4.0,60.0
+PED-250,2026-03-02,Silla Ergonómica,Mobiliario,3.0,600.0
+PED-251,2026-02-01,Memoria USB 64GB,  Almacenamiento ,4.0,60.0
+PED-252,2026-03-02,,Equipos,3.0,2250.0
+,2026-02-22,Computadora Portátil,Equipos,2.0,1500.0
+PED-254,2026-01-25,"Monitor 24""",,-1.0,360.0
+PED-255,2026-01-13,Memoria USB 64GB,Almacenamiento,1.0,15.0
+PED-256,ERROR_DATE,Silla Ergonómica,Mobiliario,2.0,400.0
+,2026-03-26,Auriculares Gamer,Audio,2.0,90.0
+PED-258,2026-02-25,Webcam HD,Accesorios,3.0,No_Disponible
+PED-259,2026-02-15,Altavoces Bluetooth,Audio,5.0,175.0
+PED-260,2026-02-24,Altavoces Bluetooth,  Audio ,3.0,105.0
+PED-261,2026-02-22,"Monitor 24""",  Pantallas ,2.0,360.0
+PED-262,2026-03-01,Computadora Portátil,Equipos,2.0,1500.0
+PED-263,2026-01-07,Memoria USB 64GB,Almacenamiento,2.0,30.0
+PED-264,2026-03-28,Computadora Portátil,Equipos,,750.0
+PED-265,2026-03-25,Silla Ergonómica,Mobiliario,2.0,400.0
+PED-266,04-01-2026,,Equipos,1.0,750.0
+PED-267,2026-01-13,Ratón Inalámbrico,Accesorios,5.0,125.0
+PED-268,2026-01-08,Computadora Portátil,Equipos,2.0,1500.0
+PED-269,2026-02-21,Webcam HD,Accesorios,1.0,50.0
+PED-270,2026-02-13,Ratón Inalámbrico,Accesorios,5.0,125.0
+PED-271,2026-01-14,Computadora Portátil,Equipos,4.0,3000.0
+PED-272,2026-02-01,Webcam HD,Accesorios,4.0,200.0
+PED-273,2026-01-25,Memoria USB 64GB,Almacenamiento,2.0,30.0
+PED-274,2026-01-25,Ratón Inalámbrico,Accesorios,3.0,75.0
+PED-275,2026-03-10,Webcam HD,Accesorios,1.0,50.0
+PED-276,2026-02-27,"monitor 24""",Pantallas,4.0,720.0
+,2026-01-18,Webcam HD,Accesorios,1.0,50.0
+PED-278,2026-02-24,Altavoces Bluetooth,Audio,1.0,
+PED-116,2026-02-28,altavoces bluetooth,Audio,3.0,105.0
+PED-280,2026-02-05,Altavoces Bluetooth,Audio,3.0,105.0
+PED-281,2026-03-01,"Monitor 24""",Pantallas,2.0,360.0
+PED-282,05-Mar-2026,"Monitor 24""",,5.0,900.0
+PED-283,2026-01-10,disco duro externo 1tb,Almacenamiento,5.0,300.0
+PED-284,2026-02-26,Altavoces Bluetooth,Audio,5.0,175.0
+PED-285,2026-03-12,Auriculares Gamer,Audio,5.0,225.0
+PED-286,2026-01-13,Disco Duro Externo 1TB,Almacenamiento,4.0,240.0
+PED-287,2026-01-07,Webcam HD,Accesorios,3.0,150.0
+PED-288,2026-03-25,Altavoces Bluetooth,Audio,4.0,140.0
+PED-289,2026-03-11,Computadora Portátil,Equipos,5.0,3750.0
+PED-290,2026-01-02,Altavoces Bluetooth,Audio,1.0,35.0
+PED-291,2026-01-12,Altavoces Bluetooth,Audio,1.0,35.0
+PED-292,2026-01-31,Auriculares Gamer,Audio,2.0,90.0
+PED-293,2026-01-22,Computadora Portátil,EQUIPOS,1.0,750.0
+PED-294,2026-02-22,Teclado Mecánico,Accesorios,2.0,170.0
+PED-295,,Teclado Mecánico,Accesorios,5.0,425.0
+PED-296,,"Monitor 24""",Pantallas,2.0,360.0
+PED-297,2026-01-28,Ratón Inalámbrico,  Accesorios ,4.0,100.0
+PED-298,2026-02-21,Webcam HD,Accesorios,5.0,250.0
+PED-299,2026-01-08,Webcam HD,Accesorios,3.0,150.0
+PED-300,2026-01-22,,Accesorios,2.0,50.0
