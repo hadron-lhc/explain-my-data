@@ -1,6 +1,7 @@
 import pandas as pd
 from src.profiling import infer_role
 from src.profiling import infer_role, profile_column
+from src.profiling import infer_role, profile_column, profile_dataset
 
 
 def test_infer_role():
@@ -68,3 +69,31 @@ def test_profile_column():
     assert profile.pct_unique == 60.0
 
     assert profile.sample_values == [10.0, 20.0, 40.0]
+
+
+def test_profile_dataset():
+    df = pd.DataFrame(
+        {
+            "customer_id": range(100, 120),
+            "age": [20, 21, 22, 23, 24] * 4,
+            "active": ["yes", "no", "yes", "yes", "no"] * 4,
+            "city": ["MDQ", "BA"] * 10,
+        }
+    )
+
+    profile = profile_dataset(df)
+
+    assert profile.n_rows == 20
+    assert profile.n_columns == 4
+    assert profile.n_duplicates == 0
+
+    assert len(profile.columns) == 4
+
+    roles = {column.name: column.role for column in profile.columns}
+
+    assert roles == {
+        "customer_id": "identifier",
+        "age": "numeric",
+        "active": "boolean",
+        "city": "categorical",
+    }
