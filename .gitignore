@@ -75,3 +75,9 @@ data/processed/
 
 *.log
 *.tmp
+
+
+data/generate_messy_dataset.py
+data/messy_sales.csv
+
+output.txt
