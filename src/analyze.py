@@ -186,6 +186,26 @@ def print_relationships(report: AnalysisReport) -> None:
         print(f"  Spearman:  {relationship.spearman:.3f}")
         print(f"  n:         {relationship.n_observations}")
 
+    print("CATEGORICAL ↔ NUMERIC")
+    print("-" * 60)
+
+    for relationship in report.categorical_numeric_relationships:
+        print()
+        print(f"{relationship.column_categorical} <-> {relationship.column_numeric}")
+        print(f"  n: {relationship.n_observations}")
+
+        print("  Group means:")
+        for group, mean in relationship.group_means.items():
+            print(f"    {group}: {mean:.2f}")
+
+        print("  Group medians:")
+        for group, median in relationship.group_medians.items():
+            print(f"    {group}: {median:.2f}")
+
+        print("  Group counts:")
+        for group, count in relationship.group_counts.items():
+            print(f"    {group}: {count}")
+
 
 def print_report(report: AnalysisReport) -> None:
     print()
@@ -225,6 +245,12 @@ def main() -> None:
     report = analyze_dataset(df)
 
     print_report(report)
+
+    print("\n  CATEGORICAL ↔ NUMERIC")
+
+    for relationship in report.categorical_numeric_relationships:
+        print(f"  {relationship.column_categorical} → {relationship.column_numeric}")
+        print(f"    group separation: {relationship.group_separation:.2f}")
 
 
 if __name__ == "__main__":

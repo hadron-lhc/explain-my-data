@@ -22,9 +22,15 @@ from src.quality import (
     QualityReport,
     quality_dataset,
 )
+from src.preparation import (
+    prepare_categorical_series,
+    prepare_numeric_series,
+)
 from src.relationships import (
     NumericRelationship,
+    CategoricalNumericRelationship,
     calculate_numeric_relationship,
+    calculate_categorical_numeric_relationship,
 )
 from src.statistics import (
     CategoricalStatistics,
@@ -47,6 +53,10 @@ class AnalysisReport:
     categorical_statistics: list[CategoricalStatistics] = field(default_factory=list)
 
     numeric_relationships: list[NumericRelationship] = field(default_factory=list)
+
+    categorical_numeric_relationships: list[CategoricalNumericRelationship] = field(
+        default_factory=list
+    )
 
 
 def analyze_dataset(
@@ -84,14 +94,47 @@ def analyze_dataset(
     )
 
     # ---------------------------------------------------------
-    # 3. STATISTICS
+    # 3. PREPARATION
+    # ---------------------------------------------------------
+
+    quality_by_column = {column.column_name: column for column in quality.columns}
+
+    prepared_columns: dict[str, pd.Series] = {}
+
+    for column in profile.columns:
+        series = df[column.name]
+
+        if column.role == "numeric":
+            prepared = prepare_numeric_series(
+                series,
+                column,
+                quality_by_column[column.name],
+            )
+
+        elif column.role == "categorical":
+            prepared = prepare_categorical_series(
+                series,
+                column,
+            )
+
+        else:
+            prepared = None
+
+        if prepared is not None:
+            prepared_columns[column.name] = prepared
+
+    # ---------------------------------------------------------
+    # 4. STATISTICS
     # ---------------------------------------------------------
 
     numeric_statistics: list[NumericStatistics] = []
     categorical_statistics: list[CategoricalStatistics] = []
 
     for column in profile.columns:
-        series = df[column.name]
+        series = prepared_columns.get(column.name)
+
+        if series is None:
+            continue
 
         if column.role == "numeric":
             statistics = calculate_numeric_statistics(
@@ -112,11 +155,19 @@ def analyze_dataset(
                 categorical_statistics.append(statistics)
 
     # ---------------------------------------------------------
-    # 4. RELATIONSHIPS
+    # 5. RELATIONSHIPS
     # ---------------------------------------------------------
 
     numeric_columns = [
-        column.name for column in profile.columns if column.role == "numeric"
+        column.name
+        for column in profile.columns
+        if column.role == "numeric" and column.name in prepared_columns
+    ]
+
+    categorical_columns = [
+        column.name
+        for column in profile.columns
+        if column.role == "categorical" and column.name in prepared_columns
     ]
 
     numeric_relationships: list[NumericRelationship] = []
@@ -124,8 +175,8 @@ def analyze_dataset(
     for i, column_x in enumerate(numeric_columns):
         for column_y in numeric_columns[i + 1 :]:
             relationship = calculate_numeric_relationship(
-                df[column_x],
-                df[column_y],
+                prepared_columns[column_x],
+                prepared_columns[column_y],
                 column_x,
                 column_y,
             )
@@ -133,10 +184,25 @@ def analyze_dataset(
             if relationship is not None:
                 numeric_relationships.append(relationship)
 
+    categorical_numeric_relationships: list[CategoricalNumericRelationship] = []
+
+    for column_categorical in categorical_columns:
+        for column_numeric in numeric_columns:
+            relationship = calculate_categorical_numeric_relationship(
+                prepared_columns[column_numeric],
+                prepared_columns[column_categorical],
+                column_numeric,
+                column_categorical,
+            )
+
+            if relationship is not None:
+                categorical_numeric_relationships.append(relationship)
+
     return AnalysisReport(
         profile=profile,
         quality=quality,
         numeric_statistics=numeric_statistics,
         categorical_statistics=categorical_statistics,
         numeric_relationships=numeric_relationships,
+        categorical_numeric_relationships=categorical_numeric_relationships,
     )

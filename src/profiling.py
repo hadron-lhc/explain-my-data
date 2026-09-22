@@ -16,11 +16,9 @@ Una columna puede ser int64 y aun así no tener sentido promediarla
 from __future__ import annotations
 
 import re
-import sys
 from dataclasses import dataclass, field
 from typing import List, Tuple
 
-import numpy as np
 import pandas as pd
 from pathlib import Path
 
