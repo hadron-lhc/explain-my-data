@@ -225,6 +225,17 @@ def print_report(report: AnalysisReport) -> None:
     print("=" * 60)
 
 
+def print_analysis_candidates(report: AnalysisReport) -> None:
+    print("\n  ANALYSIS CANDIDATES")
+
+    for candidate in report.analysis_candidates:
+        print(f"  {candidate.column_x} → {candidate.column_y}")
+        print(f"    type: {candidate.relationship_type}")
+        print(f"    relevance: {candidate.relevance_score:.2f}")
+        print(f"    metrics: {', '.join(candidate.recommended_metrics)}")
+        print(f"    visualizations: {', '.join(candidate.recommended_visualizations)}")
+
+
 def main() -> None:
     args = parse_args()
 
@@ -251,6 +262,9 @@ def main() -> None:
     for relationship in report.categorical_numeric_relationships:
         print(f"  {relationship.column_categorical} → {relationship.column_numeric}")
         print(f"    group separation: {relationship.group_separation:.2f}")
+
+    print("\n ANALYSIS CANDIDATES")
+    print_analysis_candidates(report)
 
 
 if __name__ == "__main__":

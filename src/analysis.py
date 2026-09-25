@@ -38,6 +38,11 @@ from src.statistics import (
     calculate_categorical_statistics,
     calculate_numeric_statistics,
 )
+from src.planner import (
+    AnalysisCandidate,
+    plan_categorical_numeric_analysis,
+    select_categorical_numeric_relationships,
+)
 
 
 @dataclass
@@ -57,6 +62,7 @@ class AnalysisReport:
     categorical_numeric_relationships: list[CategoricalNumericRelationship] = field(
         default_factory=list
     )
+    analysis_candidates: list[AnalysisCandidate] = field(default_factory=list)
 
 
 def analyze_dataset(
@@ -198,6 +204,19 @@ def analyze_dataset(
             if relationship is not None:
                 categorical_numeric_relationships.append(relationship)
 
+    # ---------------------------------------------------------
+    # 6. PLANNING
+    # ---------------------------------------------------------
+
+    selected_relationships = select_categorical_numeric_relationships(
+        categorical_numeric_relationships,
+    )
+
+    analysis_candidates = [
+        plan_categorical_numeric_analysis(relationship)
+        for relationship in selected_relationships
+    ]
+
     return AnalysisReport(
         profile=profile,
         quality=quality,
@@ -205,4 +224,5 @@ def analyze_dataset(
         categorical_statistics=categorical_statistics,
         numeric_relationships=numeric_relationships,
         categorical_numeric_relationships=categorical_numeric_relationships,
+        analysis_candidates=analysis_candidates,
     )

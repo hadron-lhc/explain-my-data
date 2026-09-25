@@ -52,6 +52,10 @@ class CategoricalNumericRelationship:
     # merece análisis adicional.
     group_separation: float
 
+    n_groups: int
+
+    group_outliers: dict[str, int]
+
 
 @dataclass
 class ContextualRelationship:
@@ -137,6 +141,8 @@ def calculate_categorical_numeric_relationship(
     group_medians = grouped.median().to_dict()
     group_counts = grouped.count().to_dict()
 
+    n_groups = len(group_means)
+
     overall_std = data["numeric"].std()
 
     mean_range = max(group_means.values()) - min(group_means.values())
@@ -146,6 +152,28 @@ def calculate_categorical_numeric_relationship(
     else:
         group_separation = 0.0
 
+    q1 = grouped.quantile(0.25)
+    q3 = grouped.quantile(0.75)
+
+    iqr = q3 - q1
+
+    lower_bound = q1 - 1.5 * iqr
+    upper_bound = q3 + 1.5 * iqr
+
+    categorical_values = data["categorical"].astype("string")
+
+    outlier_mask = (data["numeric"] < categorical_values.map(lower_bound)) | (
+        data["numeric"] > categorical_values.map(upper_bound)
+    )
+
+    group_outliers = (
+        data.loc[outlier_mask]
+        .groupby("categorical")["numeric"]
+        .count()
+        .reindex(grouped.groups.keys(), fill_value=0)
+        .to_dict()
+    )
+
     return CategoricalNumericRelationship(
         column_categorical=column_categorical,
         column_numeric=column_numeric,
@@ -154,4 +182,6 @@ def calculate_categorical_numeric_relationship(
         group_counts=group_counts,
         n_observations=len(data),
         group_separation=group_separation,
+        n_groups=n_groups,
+        group_outliers=group_outliers,
     )
