@@ -1,0 +1,61 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: sans-serif;
+  background: #f5f5f5;
+  color: #222;
+}
+
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 40px 24px;
+}
+
+header {
+  margin-bottom: 32px;
+}
+
+header h1 {
+  margin-bottom: 8px;
+}
+
+.upload-section {
+  padding: 24px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+}
+
+button {
+  margin-left: 12px;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+
+.hidden {
+  display: none;
+}
+
+section {
+  margin-top: 32px;
+}
+
+.chart-container {
+  margin-top: 20px;
+  padding: 20px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+}
+
+pre {
+  max-height: 500px;
+  overflow: auto;
+  padding: 16px;
+  background: #111;
+  color: #eee;
+}

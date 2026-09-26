@@ -6,12 +6,15 @@ readme = "README.md"
 authors = [{ name = "tachyon-lhc", email = "valentingonzalezdaumes@gmail.com" }]
 requires-python = ">=3.12,<3.13"
 dependencies = [
+  "fastapi>=0.141.1",
   "numpy>=2.5.3",
   "pandas>=3.0.5",
   "plotly>=7.0.0",
+  "python-multipart>=0.0.32",
   "scikit-learn>=1.9.1",
   "scipy>=1.18.1",
   "streamlit>=1.63.0",
+  "uvicorn[standard]>=0.52.4",
 ]
 
 [project.scripts]

@@ -4,14 +4,17 @@ from src.planner import (
     AnalysisCandidate,
     plan_categorical_numeric_analysis,
 )
-from src.relationships import CategoricalNumericRelationship
+from src.relationships import CategoricalNumericRelationship, NumericRelationship
+
 
 from src.planner import (
-    AnalysisCandidate,
-    plan_categorical_numeric_analysis,
     recommend_categorical_numeric_metrics,
     select_categorical_numeric_relationships,
     recommend_categorical_numeric_visualizations,
+    select_numeric_numeric_relationships,
+    plan_numeric_numeric_analysis,
+    recommend_numeric_numeric_metrics,
+    recommend_numeric_numeric_visualizations,
 )
 
 
@@ -283,3 +286,215 @@ def test_recommend_only_boxplot_for_many_groups_with_outliers():
     visualizations = recommend_categorical_numeric_visualizations(relationship)
 
     assert visualizations == ["boxplot"]
+
+
+def make_numeric_relationship(
+    column_x: str,
+    column_y: str,
+    pearson: float,
+    spearman: float,
+) -> NumericRelationship:
+    return NumericRelationship(
+        column_x=column_x,
+        column_y=column_y,
+        pearson=pearson,
+        spearman=spearman,
+        n_observations=100,
+    )
+
+
+def test_select_numeric_numeric_relationships():
+    relationships = [
+        make_numeric_relationship("a", "b", 0.2, 0.3),
+        make_numeric_relationship("a", "c", 0.5, 0.6),
+        make_numeric_relationship("a", "d", 0.9, 0.8),
+        make_numeric_relationship("a", "e", -0.95, -0.9),
+    ]
+
+    selected = select_numeric_numeric_relationships(
+        relationships,
+        percentile=75.0,
+    )
+
+    assert len(selected) == 1
+    assert selected[0].column_y == "e"
+
+
+def test_numeric_numeric_selection_uses_absolute_correlation():
+    relationships = [
+        make_numeric_relationship("a", "b", 0.2, 0.3),
+        make_numeric_relationship("a", "c", -0.9, -0.8),
+    ]
+
+    selected = select_numeric_numeric_relationships(
+        relationships,
+        percentile=75.0,
+    )
+
+    assert len(selected) == 1
+    assert selected[0].column_y == "c"
+
+
+def test_numeric_numeric_selection_uses_strongest_of_pearson_and_spearman():
+    relationships = [
+        make_numeric_relationship("a", "b", 0.2, 0.3),
+        make_numeric_relationship("a", "c", 0.4, 0.9),
+    ]
+
+    selected = select_numeric_numeric_relationships(
+        relationships,
+        percentile=75.0,
+    )
+
+    assert len(selected) == 1
+    assert selected[0].column_y == "c"
+
+
+def test_numeric_numeric_selection_empty():
+    selected = select_numeric_numeric_relationships([])
+
+    assert selected == []
+
+
+def test_select_numeric_numeric_relationships_keeps_high_relative_scores():
+    relationships = [
+        make_numeric_relationship("a", "b", 0.1, 0.2),
+        make_numeric_relationship("a", "c", 0.3, 0.4),
+        make_numeric_relationship("a", "d", 0.5, 0.6),
+        make_numeric_relationship("a", "e", 0.9, 0.8),
+    ]
+
+    selected = select_numeric_numeric_relationships(
+        relationships,
+        percentile=75.0,
+    )
+
+    selected_names = {relationship.column_y for relationship in selected}
+
+    assert "e" in selected_names
+
+
+def test_numeric_numeric_metrics_recommend_pearson_and_spearman():
+    relationship = make_numeric_relationship(
+        "quantity",
+        "price",
+        pearson=0.8,
+        spearman=0.85,
+    )
+
+    metrics = recommend_numeric_numeric_metrics(relationship)
+
+    assert metrics == ["pearson", "spearman"]
+
+
+def test_numeric_numeric_metrics_recommend_only_spearman():
+    relationship = make_numeric_relationship(
+        "quantity",
+        "price",
+        pearson=0.3,
+        spearman=0.8,
+    )
+
+    metrics = recommend_numeric_numeric_metrics(relationship)
+
+    assert metrics == ["spearman"]
+
+
+def test_numeric_numeric_metrics_recommend_only_pearson():
+    relationship = make_numeric_relationship(
+        "quantity",
+        "price",
+        pearson=0.8,
+        spearman=0.3,
+    )
+
+    metrics = recommend_numeric_numeric_metrics(relationship)
+
+    assert metrics == ["pearson"]
+
+
+def test_numeric_numeric_metrics_ignore_direction():
+    relationship = make_numeric_relationship(
+        "quantity",
+        "price",
+        pearson=-0.8,
+        spearman=-0.9,
+    )
+
+    metrics = recommend_numeric_numeric_metrics(relationship)
+
+    assert metrics == ["pearson", "spearman"]
+
+
+def test_numeric_numeric_visualizations_recommend_scatter():
+    relationship = make_numeric_relationship(
+        "quantity",
+        "price",
+        pearson=0.8,
+        spearman=0.85,
+    )
+
+    visualizations = recommend_numeric_numeric_visualizations(relationship)
+
+    assert visualizations == ["scatter"]
+
+
+def test_plan_numeric_numeric_analysis():
+    relationship = make_numeric_relationship(
+        "quantity",
+        "price",
+        pearson=0.8,
+        spearman=0.85,
+    )
+
+    candidate = plan_numeric_numeric_analysis(relationship)
+
+    assert candidate.column_x == "quantity"
+    assert candidate.column_y == "price"
+    assert candidate.relationship_type == "numeric_numeric"
+    assert candidate.relevance_score == 0.85
+    assert candidate.recommended_metrics == [
+        "pearson",
+        "spearman",
+    ]
+    assert candidate.recommended_visualizations == [
+        "scatter",
+    ]
+
+
+def test_numeric_numeric_selection_requires_minimum_strength():
+    relationships = [
+        make_numeric_relationship("a", "b", 0.1, 0.2),
+        make_numeric_relationship("a", "c", 0.3, 0.4),
+        make_numeric_relationship("a", "d", 0.4, 0.45),
+        make_numeric_relationship("a", "e", 0.9, 0.85),
+    ]
+
+    selected = select_numeric_numeric_relationships(
+        relationships,
+        percentile=75.0,
+        minimum_strength=0.5,
+    )
+
+    selected_names = {relationship.column_y for relationship in selected}
+
+    assert selected_names == {"e"}
+
+
+def test_numeric_numeric_selection_uses_relative_threshold():
+    relationships = [
+        make_numeric_relationship("a", "b", 0.1, 0.2),
+        make_numeric_relationship("a", "c", 0.4, 0.6),
+        make_numeric_relationship("a", "d", 0.7, 0.8),
+        make_numeric_relationship("a", "e", 0.9, 0.95),
+    ]
+
+    selected = select_numeric_numeric_relationships(
+        relationships,
+        percentile=50.0,
+        minimum_strength=0.5,
+    )
+
+    selected_names = {relationship.column_y for relationship in selected}
+
+    assert selected_names == {"d", "e"}

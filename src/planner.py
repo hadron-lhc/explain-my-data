@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from src.relationships import CategoricalNumericRelationship
+from src.relationships import CategoricalNumericRelationship, NumericRelationship
 
 import numpy as np
 
@@ -138,6 +138,117 @@ def select_categorical_numeric_relationships(
         for relationship in relationships
         if relationship.group_separation >= threshold
     ]
+
+
+def select_numeric_numeric_relationships(
+    relationships: list[NumericRelationship],
+    percentile: float = 75.0,
+    minimum_strength: float = 0.5,
+) -> list[NumericRelationship]:
+    """
+    Selecciona relaciones numéricas relevantes.
+
+    Una relación debe superar tanto el umbral relativo
+    del dataset como una fuerza mínima absoluta.
+
+    La fuerza se define como la mayor magnitud absoluta
+    entre Pearson y Spearman.
+    """
+
+    if not relationships:
+        return []
+
+    scores = np.array(
+        [
+            max(
+                abs(relationship.pearson),
+                abs(relationship.spearman),
+            )
+            for relationship in relationships
+        ]
+    )
+
+    threshold = np.percentile(
+        scores,
+        percentile,
+    )
+
+    effective_threshold = max(
+        threshold,
+        minimum_strength,
+    )
+
+    return [
+        relationship
+        for relationship in relationships
+        if max(
+            abs(relationship.pearson),
+            abs(relationship.spearman),
+        )
+        >= effective_threshold
+    ]
+
+
+def recommend_numeric_numeric_metrics(
+    relationship: NumericRelationship,
+) -> list[str]:
+    """
+    Recomienda métricas para una relación numérica → numérica.
+
+    Pearson se recomienda cuando existe una asociación lineal
+    relevante.
+
+    Spearman se recomienda cuando existe una asociación
+    monotónica relevante.
+    """
+
+    metrics = []
+
+    pearson_strength = abs(relationship.pearson)
+    spearman_strength = abs(relationship.spearman)
+
+    if pearson_strength >= 0.5:
+        metrics.append("pearson")
+
+    if spearman_strength >= 0.5:
+        metrics.append("spearman")
+
+    return metrics
+
+
+def recommend_numeric_numeric_visualizations(
+    relationship: NumericRelationship,
+) -> list[str]:
+    """
+    Recomienda visualizaciones para una relación numérica → numérica.
+    """
+
+    return ["scatter"]
+
+
+def plan_numeric_numeric_analysis(
+    relationship: NumericRelationship,
+) -> AnalysisCandidate:
+    """
+    Construye un candidato de análisis para una relación
+    numérica → numérica.
+    """
+
+    relevance_score = max(
+        abs(relationship.pearson),
+        abs(relationship.spearman),
+    )
+
+    return AnalysisCandidate(
+        column_x=relationship.column_x,
+        column_y=relationship.column_y,
+        relationship_type="numeric_numeric",
+        relevance_score=relevance_score,
+        recommended_metrics=recommend_numeric_numeric_metrics(relationship),
+        recommended_visualizations=recommend_numeric_numeric_visualizations(
+            relationship
+        ),
+    )
 
 
 def test_planner_does_not_recommend_boxplot_without_outliers():

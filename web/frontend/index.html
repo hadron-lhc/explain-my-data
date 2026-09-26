@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>Explain My Data</title>
+
+    <link rel="stylesheet" href="style.css" />
+
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  </head>
+
+  <body>
+    <main class="container">
+      <header>
+        <h1>Explain My Data</h1>
+        <p>Upload a CSV and discover what is inside.</p>
+      </header>
+
+      <section class="upload-section">
+        <input type="file" id="file-input" accept=".csv" />
+
+        <button id="analyze-button">Analyze dataset</button>
+      </section>
+
+      <p id="status"></p>
+
+      <section id="results" class="hidden">
+        <section>
+          <h2>Dataset overview</h2>
+
+          <div id="overview"></div>
+        </section>
+
+        <section>
+          <h2>Quality</h2>
+
+          <div id="quality"></div>
+        </section>
+
+        <section>
+          <h2>Recommended analysis</h2>
+
+          <div id="charts"></div>
+        </section>
+
+        <section>
+          <h2>Raw analysis report</h2>
+
+          <pre id="raw-report"></pre>
+        </section>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

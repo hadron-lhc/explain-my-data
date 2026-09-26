@@ -41,7 +41,9 @@ from src.statistics import (
 from src.planner import (
     AnalysisCandidate,
     plan_categorical_numeric_analysis,
+    plan_numeric_numeric_analysis,
     select_categorical_numeric_relationships,
+    select_numeric_numeric_relationships,
 )
 
 
@@ -208,14 +210,25 @@ def analyze_dataset(
     # 6. PLANNING
     # ---------------------------------------------------------
 
-    selected_relationships = select_categorical_numeric_relationships(
-        categorical_numeric_relationships,
+    selected_numeric_relationships = select_numeric_numeric_relationships(
+        numeric_relationships,
+    )
+
+    selected_categorical_numeric_relationships = (
+        select_categorical_numeric_relationships(
+            categorical_numeric_relationships,
+        )
     )
 
     analysis_candidates = [
-        plan_categorical_numeric_analysis(relationship)
-        for relationship in selected_relationships
+        plan_numeric_numeric_analysis(relationship)
+        for relationship in selected_numeric_relationships
     ]
+
+    analysis_candidates.extend(
+        plan_categorical_numeric_analysis(relationship)
+        for relationship in selected_categorical_numeric_relationships
+    )
 
     return AnalysisReport(
         profile=profile,
