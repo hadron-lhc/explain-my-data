@@ -46,6 +46,8 @@ from src.planner import (
     select_numeric_numeric_relationships,
 )
 
+from src.visualizations import ScatterPlotData, build_scatter_plot
+
 
 @dataclass
 class AnalysisReport:
@@ -65,6 +67,8 @@ class AnalysisReport:
         default_factory=list
     )
     analysis_candidates: list[AnalysisCandidate] = field(default_factory=list)
+
+    scatter_plots: list[ScatterPlotData] = field(default_factory=list)
 
 
 def analyze_dataset(
@@ -230,6 +234,18 @@ def analyze_dataset(
         for relationship in selected_categorical_numeric_relationships
     )
 
+    scatter_plots = []
+
+    for relationship in selected_numeric_relationships:
+        scatter_plot = build_scatter_plot(
+            df,
+            relationship.column_x,
+            relationship.column_y,
+        )
+
+        if scatter_plot is not None:
+            scatter_plots.append(scatter_plot)
+
     return AnalysisReport(
         profile=profile,
         quality=quality,
@@ -238,4 +254,5 @@ def analyze_dataset(
         numeric_relationships=numeric_relationships,
         categorical_numeric_relationships=categorical_numeric_relationships,
         analysis_candidates=analysis_candidates,
+        scatter_plots=scatter_plots,
     )

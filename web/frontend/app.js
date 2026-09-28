@@ -89,69 +89,46 @@ function renderQuality(report) {
 function renderCharts(report) {
   charts.innerHTML = "";
 
-  for (const candidate of report.analysis_candidates) {
+  for (const visualization of report.scatter_plots) {
     const container = document.createElement("div");
 
     container.className = "chart-container";
 
     charts.appendChild(container);
 
-    renderCandidateChart(container, candidate, report);
+    renderScatterPlot(container, visualization);
   }
 }
 
-function renderCandidateChart(container, candidate, report) {
-  if (candidate.relationship_type === "numeric_numeric") {
-    renderNumericNumericChart(container, candidate, report);
+function renderScatterPlot(container, visualization) {
+  const chart = document.createElement("div");
 
-    return;
-  }
+  container.appendChild(chart);
 
-  if (candidate.relationship_type === "categorical_numeric") {
-    renderCategoricalNumericChart(container, candidate, report);
-  }
-}
-
-function renderNumericNumericChart(container, candidate, report) {
-  // Temporary implementation.
-  // The actual visualization data will
-  // come from the backend later.
-
-  container.innerHTML = `
-        <h3>
-            ${candidate.column_x}
-            vs
-            ${candidate.column_y}
-        </h3>
-
-        <p>
-            Recommended visualization:
-            ${candidate.recommended_visualizations.join(", ")}
-        </p>
-
-        <p>
-            Relevance:
-            ${candidate.relevance_score.toFixed(2)}
-        </p>
-    `;
-}
-
-function renderCategoricalNumericChart(container, candidate, report) {
-  container.innerHTML = `
-        <h3>
-            ${candidate.column_x}
-            vs
-            ${candidate.column_y}
-        </h3>
-
-        <p>
-            Recommended visualization:
-            ${candidate.recommended_visualizations.join(", ")}
-        </p>
-
-        <p>
-            Relevance:
-            ${candidate.relevance_score.toFixed(2)}
-        </p>
-    `;
+  Plotly.newPlot(
+    chart,
+    [
+      {
+        x: visualization.x_values,
+        y: visualization.y_values,
+        type: "scatter",
+        mode: "markers",
+        marker: {
+          size: 6,
+        },
+      },
+    ],
+    {
+      title: `${visualization.column_x} vs ${visualization.column_y}`,
+      xaxis: {
+        title: visualization.column_x,
+      },
+      yaxis: {
+        title: visualization.column_y,
+      },
+    },
+    {
+      responsive: true,
+    },
+  );
 }
