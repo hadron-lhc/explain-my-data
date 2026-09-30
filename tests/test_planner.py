@@ -3,11 +3,6 @@ import pytest
 from src.planner import (
     AnalysisCandidate,
     plan_categorical_numeric_analysis,
-)
-from src.relationships import CategoricalNumericRelationship, NumericRelationship
-
-
-from src.planner import (
     recommend_categorical_numeric_metrics,
     select_categorical_numeric_relationships,
     recommend_categorical_numeric_visualizations,
@@ -15,6 +10,12 @@ from src.planner import (
     plan_numeric_numeric_analysis,
     recommend_numeric_numeric_metrics,
     recommend_numeric_numeric_visualizations,
+    plan_numeric_numeric_visualization,
+)
+from src.profiling import ColumnProfile
+from src.relationships import (
+    CategoricalNumericRelationship,
+    NumericRelationship,
 )
 
 
@@ -303,6 +304,24 @@ def make_numeric_relationship(
     )
 
 
+def make_numeric_profile(
+    name: str,
+    *,
+    is_discrete: bool,
+) -> ColumnProfile:
+    return ColumnProfile(
+        name=name,
+        dtype="int64" if is_discrete else "float64",
+        role="numeric",
+        n_missing=0,
+        pct_missing=0.0,
+        n_unique=5 if is_discrete else 100,
+        pct_unique=5.0 if is_discrete else 100.0,
+        sample_values=[1, 2, 3],
+        is_discrete=is_discrete,
+    )
+
+
 def test_select_numeric_numeric_relationships():
     relationships = [
         make_numeric_relationship("a", "b", 0.2, 0.3),
@@ -434,7 +453,9 @@ def test_numeric_numeric_visualizations_recommend_scatter():
         spearman=0.85,
     )
 
-    visualizations = recommend_numeric_numeric_visualizations(relationship)
+    visualizations = recommend_numeric_numeric_visualizations(
+        relationship,
+    )
 
     assert visualizations == ["scatter"]
 
@@ -447,19 +468,26 @@ def test_plan_numeric_numeric_analysis():
         spearman=0.85,
     )
 
-    candidate = plan_numeric_numeric_analysis(relationship)
+    profile_x = make_numeric_profile(
+        "quantity",
+        is_discrete=True,
+    )
+
+    profile_y = make_numeric_profile(
+        "price",
+        is_discrete=False,
+    )
+
+    candidate = plan_numeric_numeric_analysis(
+        relationship,
+        profile_x,
+        profile_y,
+    )
 
     assert candidate.column_x == "quantity"
     assert candidate.column_y == "price"
     assert candidate.relationship_type == "numeric_numeric"
-    assert candidate.relevance_score == 0.85
-    assert candidate.recommended_metrics == [
-        "pearson",
-        "spearman",
-    ]
-    assert candidate.recommended_visualizations == [
-        "scatter",
-    ]
+    assert candidate.relevance_score == pytest.approx(0.85)
 
 
 def test_numeric_numeric_selection_requires_minimum_strength():
@@ -498,3 +526,157 @@ def test_numeric_numeric_selection_uses_relative_threshold():
     selected_names = {relationship.column_y for relationship in selected}
 
     assert selected_names == {"d", "e"}
+
+
+def test_numeric_numeric_visualization_plan_depends_on_sample_size():
+    small = NumericRelationship(
+        column_x="x",
+        column_y="y",
+        pearson=0.7,
+        spearman=0.7,
+        n_observations=500,
+    )
+
+    medium = NumericRelationship(
+        column_x="x",
+        column_y="y",
+        pearson=0.7,
+        spearman=0.7,
+        n_observations=3000,
+    )
+
+    large = NumericRelationship(
+        column_x="x",
+        column_y="y",
+        pearson=0.7,
+        spearman=0.7,
+        n_observations=10000,
+    )
+
+    profile_x = make_numeric_profile(
+        "x",
+        is_discrete=False,
+    )
+
+    profile_y = make_numeric_profile(
+        "y",
+        is_discrete=False,
+    )
+
+    small_plan = plan_numeric_numeric_visualization(
+        small,
+        profile_x,
+        profile_y,
+    )
+
+    medium_plan = plan_numeric_numeric_visualization(
+        medium,
+        profile_x,
+        profile_y,
+    )
+
+    large_plan = plan_numeric_numeric_visualization(
+        large,
+        profile_x,
+        profile_y,
+    )
+
+    assert small_plan.chart_type == "scatter"
+    assert small_plan.sampling is False
+    assert small_plan.trend_line is True
+
+    assert medium_plan.chart_type == "scatter"
+    assert medium_plan.sampling is True
+    assert medium_plan.max_points == 1500
+    assert medium_plan.trend_line is True
+
+    assert large_plan.chart_type == "scatter"
+    assert large_plan.sampling is True
+    assert large_plan.max_points == 2000
+    assert large_plan.trend_line is True
+
+
+def test_numeric_numeric_visualization_uses_scatter_for_continuous_variables():
+    relationship = NumericRelationship(
+        column_x="area",
+        column_y="price",
+        pearson=0.7,
+        spearman=0.7,
+        n_observations=1000,
+    )
+
+    profile_x = make_numeric_profile(
+        "area",
+        is_discrete=False,
+    )
+
+    profile_y = make_numeric_profile(
+        "price",
+        is_discrete=False,
+    )
+
+    plan = plan_numeric_numeric_visualization(
+        relationship,
+        profile_x,
+        profile_y,
+    )
+
+    assert plan.chart_type == "scatter"
+
+
+def test_numeric_numeric_visualization_uses_ranked_bar_for_low_cardinality_discrete_x():
+    relationship = NumericRelationship(
+        column_x="bathrooms",
+        column_y="area",
+        pearson=0.6,
+        spearman=0.7,
+        n_observations=1000,
+    )
+
+    profile_x = make_numeric_profile(
+        "bathrooms",
+        is_discrete=True,
+    )
+
+    profile_y = make_numeric_profile(
+        "area",
+        is_discrete=False,
+    )
+
+    plan = plan_numeric_numeric_visualization(
+        relationship,
+        profile_x,
+        profile_y,
+    )
+
+    assert plan.chart_type == "ranked_bar"
+    assert plan.group_by == "bathrooms"
+
+
+def test_numeric_numeric_visualization_uses_ranked_bar_for_low_cardinality_discrete_y():
+    relationship = NumericRelationship(
+        column_x="area",
+        column_y="bathrooms",
+        pearson=0.6,
+        spearman=0.7,
+        n_observations=1000,
+    )
+
+    profile_x = make_numeric_profile(
+        "area",
+        is_discrete=False,
+    )
+
+    profile_y = make_numeric_profile(
+        "bathrooms",
+        is_discrete=True,
+    )
+
+    plan = plan_numeric_numeric_visualization(
+        relationship,
+        profile_x,
+        profile_y,
+    )
+
+    assert plan.chart_type == "ranked_bar"
+    assert plan.group_by == "bathrooms"

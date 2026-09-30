@@ -41,6 +41,7 @@ class ColumnProfile:
     pct_unique: float
     sample_values: List
     notes: List[str] = field(default_factory=list)
+    is_discrete: bool = False
 
 
 @dataclass
@@ -147,6 +148,20 @@ def _looks_like_datetime(series: pd.Series, sample_size: int = 50) -> bool:
     return parsed.notna().mean() > 0.9
 
 
+def _is_discrete_numeric(series: pd.Series) -> bool:
+    numeric = pd.to_numeric(series, errors="coerce").dropna()
+
+    if numeric.empty:
+        return False
+
+    values_are_integer_like = (numeric % 1 == 0).all()
+
+    if not values_are_integer_like:
+        return False
+
+    return numeric.nunique() <= 20
+
+
 def infer_role(series: pd.Series, name: str) -> Tuple[str, List[str]]:
     """
     Orden:
@@ -251,6 +266,7 @@ def profile_column(series: pd.Series, name: str) -> ColumnProfile:
         pct_unique=round(n_unique / n * 100, 2) if n else 0.0,
         sample_values=sample,
         notes=notes,
+        is_discrete=_is_discrete_numeric(series),
     )
 
 

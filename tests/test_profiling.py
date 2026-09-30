@@ -97,3 +97,78 @@ def test_profile_dataset():
         "active": "boolean",
         "city": "categorical",
     }
+
+
+def test_numeric_continuous_column_is_not_discrete():
+    df = pd.DataFrame(
+        {
+            "price": [100.5, 120.2, 135.8, 150.1, 180.7, 210.4],
+        }
+    )
+
+    profile = profile_dataset(df)
+
+    column = profile.columns[0]
+
+    assert column.role == "numeric"
+    assert column.is_discrete is False
+
+
+def test_numeric_low_cardinality_column_is_discrete():
+    df = pd.DataFrame(
+        {
+            "bathrooms": [1, 2, 2, 3, 1, 4, 2, 3],
+        }
+    )
+
+    profile = profile_dataset(df)
+
+    column = profile.columns[0]
+
+    assert column.role == "numeric"
+    assert column.is_discrete is True
+
+
+def test_numeric_integer_column_with_low_unique_ratio_is_discrete():
+    df = pd.DataFrame(
+        {
+            "rating": [1, 2, 3, 4, 5] * 30,
+        }
+    )
+
+    profile = profile_dataset(df)
+
+    column = profile.columns[0]
+
+    assert column.role == "numeric"
+    assert column.is_discrete is True
+
+
+def test_numeric_column_with_many_unique_values_is_not_discrete():
+    df = pd.DataFrame(
+        {
+            "area": list(range(100, 200)),
+        }
+    )
+
+    profile = profile_dataset(df)
+
+    column = profile.columns[0]
+
+    assert column.role == "numeric"
+    assert column.is_discrete is False
+
+
+def test_numeric_continuous_column_with_many_values_is_not_discrete():
+    df = pd.DataFrame(
+        {
+            "price": [100.5 + i * 1.37 for i in range(100)],
+        }
+    )
+
+    profile = profile_dataset(df)
+
+    column = profile.columns[0]
+
+    assert column.role == "numeric"
+    assert column.is_discrete is False

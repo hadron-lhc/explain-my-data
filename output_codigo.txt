@@ -45,7 +45,6 @@ from src.planner import (
     plan_numeric_numeric_analysis,
     select_categorical_numeric_relationships,
     select_numeric_numeric_relationships,
-    VisualizationPlan,
 )
 
 from src.visualizations import (
@@ -244,14 +243,8 @@ def analyze_dataset(
         selected_categorical_numeric_relationships,
     )
 
-    profiles_by_name = {column.name: column for column in profile.columns}
-
     analysis_candidates = [
-        plan_numeric_numeric_analysis(
-            relationship,
-            profiles_by_name[relationship.column_x],
-            profiles_by_name[relationship.column_y],
-        )
+        plan_numeric_numeric_analysis(relationship)
         for relationship in selected_numeric_relationships
     ]
 
@@ -265,92 +258,23 @@ def analyze_dataset(
     # ---------------------------------------------------------
 
     scatter_plots: list[ScatterPlotData] = []
+
+    for candidate in analysis_candidates:
+        if candidate.relationship_type != "numeric_numeric":
+            continue
+
+        plan = candidate.visualization_plans[0]
+
+        scatter_plot = build_scatter_plot(
+            df,
+            candidate.column_x,
+            candidate.column_y,
+            plan=plan,
+        )
+
+        if scatter_plot is not None:
+            scatter_plots.append(scatter_plot)
+
     bar_plots: list[BarPlotData] = []
     boxplots: list[BoxPlotData] = []
 
-    for candidate in analysis_candidates:
-        if candidate.relationship_type == "numeric_numeric":
-            plan = candidate.visualization_plans[0]
-
-            if plan.chart_type == "scatter":
-                scatter_plot = build_scatter_plot(
-                    df,
-                    candidate.column_x,
-                    candidate.column_y,
-                    plan=plan,
-                )
-
-                if scatter_plot is not None:
-                    scatter_plots.append(scatter_plot)
-
-            elif plan.chart_type == "ranked_bar":
-                group_by = plan.group_by
-
-                if group_by == candidate.column_x:
-                    numeric_column = candidate.column_y
-                else:
-                    numeric_column = candidate.column_x
-
-                bar_plot = build_bar_plot(
-                    df,
-                    group_by,
-                    numeric_column,
-                    plan=plan,
-                )
-
-                if bar_plot is not None:
-                    bar_plots.append(bar_plot)
-
-            elif plan.chart_type == "boxplot":
-                group_by = plan.group_by
-
-                if group_by == candidate.column_x:
-                    numeric_column = candidate.column_y
-                else:
-                    numeric_column = candidate.column_x
-
-                boxplot = build_boxplot(
-                    df, group_by, numeric_column, min_group_size=plan.min_group_size
-                )
-
-                if boxplot is not None:
-                    boxplots.append(boxplot)
-
-        elif candidate.relationship_type == "categorical_numeric":
-            for plan in candidate.visualization_plans:
-                if plan.chart_type == "ranked_bar":
-                    bar_plot = build_bar_plot(
-                        prepared_columns,
-                        candidate.column_x,
-                        candidate.column_y,
-                        plan=plan,
-                    )
-
-                    if bar_plot is not None:
-                        bar_plots.append(bar_plot)
-
-                elif plan.chart_type == "boxplot":
-                    boxplot = build_boxplot(
-                        prepared_columns,
-                        candidate.column_x,
-                        candidate.column_y,
-                        min_group_size=plan.min_group_size,
-                    )
-
-                    if boxplot is not None:
-                        boxplots.append(boxplot)
-
-    return AnalysisReport(
-        profile=profile,
-        quality=quality,
-        numeric_statistics=numeric_statistics,
-        categorical_statistics=categorical_statistics,
-        numeric_relationships=numeric_relationships,
-        categorical_numeric_relationships=categorical_numeric_relationships,
-        analysis_candidates=analysis_candidates,
-        quality_insights=quality_insights,
-        relationship_insights=relationship_insights,
-        scatter_plots=scatter_plots,
-        bar_plots=bar_plots,
-        boxplots=boxplots,
-    )
