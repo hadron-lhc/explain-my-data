@@ -310,7 +310,9 @@ def analyze_dataset(
                     numeric_column = candidate.column_x
 
                 boxplot = build_boxplot(
-                    df, group_by, numeric_column, min_group_size=plan.min_group_size
+                    df,
+                    group_by,
+                    numeric_column,
                 )
 
                 if boxplot is not None:
@@ -334,7 +336,6 @@ def analyze_dataset(
                         prepared_columns,
                         candidate.column_x,
                         candidate.column_y,
-                        min_group_size=plan.min_group_size,
                     )
 
                     if boxplot is not None:

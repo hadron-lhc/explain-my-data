@@ -15,8 +15,14 @@ def make_column_quality(**overrides) -> ColumnQuality:
         "outlier_percentage": 0.0,
         "unique_percentage": 0.5,
         "top_values": [],
+        "n_invalid_values": 0,
+        "invalid_percentage": 0.0,
+        "n_extreme_values": 0,
+        "extreme_percentage": 0.0,
     }
+
     data.update(overrides)
+
     return ColumnQuality(**data)
 
 
@@ -37,7 +43,10 @@ def test_generates_missing_values_insight():
         missing_count=10,
         missing_percentage=5.0,
     )
-    report = make_quality_report(columns=[column])
+
+    report = make_quality_report(
+        columns=[column],
+    )
 
     insights = generate_quality_insights(report)
 
@@ -54,7 +63,10 @@ def test_generates_type_mismatch_insight():
         conversion_rate=0.98,
         type_mismatch_count=2,
     )
-    report = make_quality_report(columns=[column])
+
+    report = make_quality_report(
+        columns=[column],
+    )
 
     insights = generate_quality_insights(report)
 
@@ -63,18 +75,42 @@ def test_generates_type_mismatch_insight():
     assert "98.0%" in insights[0].message
 
 
-def test_generates_outlier_insight():
+def test_generates_extreme_values_insight():
     column = make_column_quality(
-        n_outliers=4,
-        outlier_percentage=2.0,
+        column_name="price",
+        n_extreme_values=3,
+        extreme_percentage=1.5,
     )
-    report = make_quality_report(columns=[column])
+
+    report = make_quality_report(
+        columns=[column],
+    )
 
     insights = generate_quality_insights(report)
 
     assert len(insights) == 1
-    assert any("Potential unusual values" in insight.title for insight in insights)
-    assert "4 values outside the overall IQR range" in insights[0].message
+    assert "Potentially extreme values" in insights[0].title
+    assert "3 values" in insights[0].message
+    assert "1.5%" in insights[0].message
+
+
+def test_generates_invalid_values_insight():
+    column = make_column_quality(
+        column_name="price",
+        n_invalid_values=2,
+        invalid_percentage=1.0,
+    )
+
+    report = make_quality_report(
+        columns=[column],
+    )
+
+    insights = generate_quality_insights(report)
+
+    assert len(insights) == 1
+    assert "Invalid values" in insights[0].title
+    assert "2 non-finite numeric values" in insights[0].message
+    assert "1.0%" in insights[0].message
 
 
 def test_generates_duplicate_rows_insight():
@@ -94,9 +130,10 @@ def test_generates_multiple_insights():
     column = make_column_quality(
         missing_count=3,
         missing_percentage=1.5,
-        n_outliers=2,
-        outlier_percentage=1.0,
+        n_extreme_values=2,
+        extreme_percentage=1.0,
     )
+
     report = make_quality_report(
         columns=[column],
         n_duplicates=4,
@@ -106,9 +143,12 @@ def test_generates_multiple_insights():
     insights = generate_quality_insights(report)
 
     assert len(insights) == 3
+
     assert any("Duplicate rows detected" in insight.title for insight in insights)
+
     assert any("Missing values" in insight.title for insight in insights)
-    assert any("Potential unusual values" in insight.title for insight in insights)
+
+    assert any("Potentially extreme values" in insight.title for insight in insights)
 
 
 def test_returns_empty_list_when_quality_is_clean():

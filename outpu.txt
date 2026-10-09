@@ -1,0 +1,100 @@
+{
+    "report": {
+        "original_rows": 510,
+        "final_rows": 404,
+        "duplicates_removed": 0,
+        "missing_rows_removed": 0,
+        "missing_values_filled": 65,
+        "invalid_values_replaced": 0,
+        "type_conversions": 0,
+        "extreme_values_removed": 106,
+        "actions": [
+            {
+                "action": "fill_missing_values",
+                "column_name": "product",
+                "affected_rows": 15,
+                "description": "Filled 15 missing values in product using the mode strategy.",
+                "original_dtype": null,
+                "resulting_dtype": null
+            },
+            {
+                "action": "fill_missing_values",
+                "column_name": "quantity",
+                "affected_rows": 15,
+                "description": "Filled 15 missing values in quantity using the median strategy.",
+                "original_dtype": null,
+                "resulting_dtype": null
+            },
+            {
+                "action": "fill_missing_values",
+                "column_name": "total_sales",
+                "affected_rows": 20,
+                "description": "Filled 20 missing values in total_sales using the median strategy.",
+                "original_dtype": null,
+                "resulting_dtype": null
+            },
+            {
+                "action": "fill_missing_values",
+                "column_name": "customer_age",
+                "affected_rows": 15,
+                "description": "Filled 15 missing values in customer_age using the median strategy.",
+                "original_dtype": null,
+                "resulting_dtype": null
+            },
+            {
+                "action": "remove_extreme_values",
+                "column_name": null,
+                "affected_rows": 106,
+                "description": "Removed 106 rows containing statistical outliers in: price, using the 1.5 \u00d7 IQR rule.",
+                "original_dtype": null,
+                "resulting_dtype": null
+            }
+        ]
+    },
+    "analysis": {
+        "profile": {
+            "n_rows": 404,
+            "n_columns": 10,
+            "n_duplicates": 9,
+            "columns": [
+                {
+                    "name": "order_id",
+                    "dtype": "int64",
+                    "role": "identifier",
+                    "n_missing": 0,
+                    "pct_missing": 0.0,
+                    "n_unique": 395,
+                    "pct_unique": 97.77,
+                    "sample_values": [
+                        10002,
+                        10003,
+                        10004,
+                        10005,
+                        10006
+                    ],
+                    "notes": [
+                        "El nombre sugiere que la variable es un identificador (ej. id, uuid, code)."
+                    ],
+                    "is_discrete": false
+                },
+                {
+                    "name": "date",
+                    "dtype": "str",
+                    "role": "datetime",
+                    "n_missing": 13,
+                    "pct_missing": 3.22,
+                    "n_unique": 92,
+                    "pct_unique": 22.77,
+                    "sample_values": [
+                        "2026-03-22 00:00:00",
+                        "2026-03-07 00:00:00",
+                        "2026-01-25 00:00:00",
+                        "2026-02-20 00:00:00",
+                        "2026-01-10 00:00:00"
+                    ],
+                    "notes": [
+                        "Los valores son texto pero parsean como fecha de forma consistente; considerar convertir a datetime."
+                    ],
+                    "is_discrete": false
+                },
+                {

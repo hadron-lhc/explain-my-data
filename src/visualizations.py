@@ -160,7 +160,6 @@ def build_boxplot(
     df: pd.DataFrame,
     column_categorical: str,
     column_numeric: str,
-    min_group_size: int | None = None,
 ) -> BoxPlotData | None:
     numeric = pd.to_numeric(
         df[column_numeric],
@@ -173,16 +172,6 @@ def build_boxplot(
             "value": numeric,
         }
     ).dropna()
-
-    if data.empty:
-        return None
-
-    if min_group_size is not None:
-        group_sizes = data.groupby("category").size()
-
-        valid_categories = group_sizes[group_sizes >= min_group_size].index
-
-        data = data[data["category"].isin(valid_categories)]
 
     if data.empty:
         return None

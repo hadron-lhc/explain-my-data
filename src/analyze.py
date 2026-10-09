@@ -266,6 +266,9 @@ def main() -> None:
     print("\n ANALYSIS CANDIDATES")
     print_analysis_candidates(report)
 
+    print("BOXPLOTS:", len(report.box_plots))
+    print("CATEGORICAL NUMERIC:", len(report.categorical_numeric_relationships))
+
 
 if __name__ == "__main__":
     main()

@@ -323,7 +323,6 @@ def plan_numeric_numeric_visualization(
             sort="descending",
             max_categories=10,
             group_by=profile_x.name,
-            min_group_size=10,
         )
 
     if profile_y.is_discrete and not profile_x.is_discrete:
@@ -335,7 +334,6 @@ def plan_numeric_numeric_visualization(
             sort="descending",
             max_categories=10,
             group_by=profile_y.name,
-            min_group_size=10,
         )
 
     if profile_x.is_discrete and profile_y.is_discrete:

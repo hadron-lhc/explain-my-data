@@ -48,19 +48,37 @@ def _type_mismatch_insight(
     )
 
 
-def _outlier_insight(
+def _invalid_values_insight(
     column: ColumnQuality,
 ) -> Insight | None:
-    if column.n_outliers == 0:
+    if column.n_invalid_values == 0:
         return None
 
     return Insight(
-        title=f"Potential unusual values in {column.column_name}",
+        title=f"Invalid values in {column.column_name}",
         message=(
-            f"{column.column_name} contains {column.n_outliers} values "
-            f"outside the overall IQR range "
-            f"({column.outlier_percentage:.1f}% of the column). "
+            f"{column.column_name} contains {column.n_invalid_values} "
+            f"non-finite numeric values "
+            f"({column.invalid_percentage:.1f}% of the column). "
             f"These values may require review."
+        ),
+        severity="warning",
+    )
+
+
+def _extreme_values_insight(
+    column: ColumnQuality,
+) -> Insight | None:
+    if column.n_extreme_values == 0:
+        return None
+
+    return Insight(
+        title=f"Potentially extreme values in {column.column_name}",
+        message=(
+            f"{column.column_name} contains {column.n_extreme_values} "
+            f"values outside the overall IQR range "
+            f"({column.extreme_percentage:.1f}% of the column). "
+            f"These values may be legitimate or may require review."
         ),
         severity="warning",
     )
@@ -143,11 +161,13 @@ def generate_relationship_insights(
 
     for relationship in numeric_relationships:
         insight = _numeric_relationship_insight(relationship)
+
         if insight is not None:
             insights.append(insight)
 
     for relationship in categorical_numeric_relationships:
         insight = _categorical_numeric_relationship_insight(relationship)
+
         if insight is not None:
             insights.append(insight)
 
@@ -161,18 +181,27 @@ def generate_quality_insights(
 
     for column in report.columns:
         missing_insight = _missing_values_insight(column)
+
         if missing_insight is not None:
             insights.append(missing_insight)
 
         type_mismatch_insight = _type_mismatch_insight(column)
+
         if type_mismatch_insight is not None:
             insights.append(type_mismatch_insight)
 
-        outlier_insight = _outlier_insight(column)
-        if outlier_insight is not None:
-            insights.append(outlier_insight)
+        invalid_values_insight = _invalid_values_insight(column)
+
+        if invalid_values_insight is not None:
+            insights.append(invalid_values_insight)
+
+        extreme_values_insight = _extreme_values_insight(column)
+
+        if extreme_values_insight is not None:
+            insights.append(extreme_values_insight)
 
     duplicate_insight = _duplicates_insight(report)
+
     if duplicate_insight is not None:
         insights.append(duplicate_insight)
 

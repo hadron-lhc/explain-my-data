@@ -40,6 +40,146 @@
         </section>
 
         <section>
+          <h2>Statistics</h2>
+          <div id="statistics"></div>
+        </section>
+
+        <section id="cleaning-section">
+          <div class="section-header">
+            <h2>Cleaning</h2>
+
+            <button
+              id="toggle-cleaning-button"
+              type="button"
+              aria-expanded="false"
+            >
+              Configure cleaning
+            </button>
+          </div>
+
+          <div id="cleaning-overlay" class="cleaning-overlay hidden"></div>
+
+          <aside
+            id="cleaning-options"
+            class="cleaning-drawer"
+            aria-hidden="true"
+          >
+            <div class="cleaning-drawer-header">
+              <div>
+                <h2>Cleaning options</h2>
+                <p>Choose how the dataset should be cleaned.</p>
+              </div>
+
+              <button
+                id="close-cleaning-button"
+                class="cleaning-close-button"
+                type="button"
+                aria-label="Close cleaning options"
+              >
+                ×
+              </button>
+            </div>
+
+            <div class="cleaning-drawer-content">
+              <div class="cleaning-group">
+                <h3>Missing values</h3>
+
+                <label for="numeric-missing-strategy">
+                  Numeric missing values
+                </label>
+
+                <select id="numeric-missing-strategy">
+                  <option value="keep">Keep</option>
+                  <option value="remove">Remove rows</option>
+                  <option value="mean">Mean</option>
+                  <option value="median" selected>Median</option>
+                  <option value="mode">Mode</option>
+                </select>
+
+                <label for="categorical-missing-strategy">
+                  Categorical missing values
+                </label>
+
+                <select id="categorical-missing-strategy">
+                  <option value="keep">Keep</option>
+                  <option value="remove">Remove rows</option>
+                  <option value="mode" selected>Mode</option>
+                </select>
+              </div>
+
+              <div class="cleaning-group">
+                <h3>Data validity</h3>
+
+                <label class="cleaning-checkbox">
+                  <input type="checkbox" id="remove-duplicates" checked />
+                  <span>
+                    <strong>Remove duplicate rows</strong>
+                    <small>Remove exact duplicate observations.</small>
+                  </span>
+                </label>
+
+                <label class="cleaning-checkbox">
+                  <input type="checkbox" id="replace-invalid-values" checked />
+                  <span>
+                    <strong>Replace invalid numeric values</strong>
+                    <small
+                      >Replace infinite numeric values with missing
+                      values.</small
+                    >
+                  </span>
+                </label>
+
+                <label class="cleaning-checkbox">
+                  <input type="checkbox" id="convert-type-mismatches" />
+                  <span>
+                    <strong>Convert type mismatches</strong>
+                    <small
+                      >Convert numeric-looking text to numeric values.</small
+                    >
+                  </span>
+                </label>
+              </div>
+              <div class="cleaning-group">
+                <h3>Outliers</h3>
+
+                <label for="outlier-strategy"> Statistical outliers </label>
+
+                <select id="outlier-strategy">
+                  <option value="keep" selected>Keep</option>
+                  <option value="remove">Remove</option>
+                </select>
+
+                <p class="cleaning-help">
+                  If removed, only the numeric variables selected below will be
+                  affected.
+                </p>
+
+                <div id="extreme-columns"></div>
+              </div>
+
+              <div class="cleaning-group">
+                <h3>Numeric ranges</h3>
+
+                <p class="cleaning-help">
+                  Restrict each numeric variable to an explicit valid range.
+                </p>
+
+                <div id="numeric-ranges"></div>
+              </div>
+
+              <button id="undo-cleaning-button" type="button">
+                Undo cleaning
+              </button>
+            </div>
+
+            <div class="cleaning-drawer-footer">
+              <button id="clean-button" type="button">Clean dataset</button>
+            </div>
+          </aside>
+
+          <div id="cleaning"></div>
+        </section>
+        <section>
           <h2>Relationships</h2>
           <div id="relationships"></div>
         </section>
@@ -57,6 +197,6 @@
       </section>
     </main>
 
-    <script src="app.js"></script>
+    <script type="module" src="app.js"></script>
   </body>
 </html>
