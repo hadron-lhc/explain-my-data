@@ -104,6 +104,23 @@ def test_prepare_categorical_series_returns_none_for_non_categorical():
     assert prepared is None
 
 
+def test_prepare_categorical_series_accepts_boolean_role():
+    series = pd.Series([" Yes ", "NO", "yes", "No"])
+
+    profile = make_column_profile(
+        "active",
+        "boolean",
+    )
+
+    prepared = prepare_categorical_series(
+        series,
+        profile,
+    )
+
+    assert prepared is not None
+    assert list(prepared.astype(str)) == ["yes", "no", "yes", "no"]
+
+
 def test_prepare_categorical_series_does_not_modify_original():
     series = pd.Series([" Laptop ", "LAPTOP"])
 

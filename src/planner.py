@@ -15,12 +15,23 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from src.config import (
+    BAR_MAX_CATEGORIES,
+    HEATMAP_MAX_CATEGORIES,
+    MIN_CORRELATION_STRENGTH,
+    MIN_CRAMERS_V,
+    RELATIONSHIP_SELECTION_PERCENTILE,
+    SCATTER_LIGHT_SAMPLING_MAX,
+    SCATTER_LIGHT_SAMPLING_POINTS,
+    SCATTER_MAX_POINTS,
+    SCATTER_NO_SAMPLING_MAX,
+)
+from src.profiling import ColumnProfile
 from src.relationships import (
+    CategoricalCategoricalRelationship,
     CategoricalNumericRelationship,
     NumericRelationship,
 )
-
-from src.profiling import ColumnProfile
 
 
 @dataclass
@@ -153,7 +164,7 @@ def plan_categorical_numeric_visualization(
         chart_type="ranked_bar",
         aggregation="mean",
         sort="descending",
-        max_categories=10,
+        max_categories=BAR_MAX_CATEGORIES,
     )
 
 
@@ -193,7 +204,7 @@ def plan_categorical_numeric_analysis(
 
 def select_categorical_numeric_relationships(
     relationships: list[CategoricalNumericRelationship],
-    percentile: float = 75.0,
+    percentile: float = RELATIONSHIP_SELECTION_PERCENTILE,
 ) -> list[CategoricalNumericRelationship]:
     """
     Selecciona relaciones categóricas → numéricas relevantes
@@ -220,14 +231,71 @@ def select_categorical_numeric_relationships(
 
 
 # ---------------------------------------------------------------------------
+# Categorical → categorical
+# ---------------------------------------------------------------------------
+
+
+def select_categorical_categorical_relationships(
+    relationships: list[CategoricalCategoricalRelationship],
+    percentile: float = RELATIONSHIP_SELECTION_PERCENTILE,
+    minimum_strength: float = MIN_CRAMERS_V,
+) -> list[CategoricalCategoricalRelationship]:
+    """
+    Selecciona asociaciones categóricas relevantes.
+
+    Cramér's V debe superar tanto el umbral relativo del dataset
+    como una fuerza mínima absoluta (asociación media).
+    """
+
+    if not relationships:
+        return []
+
+    scores = np.array([relationship.cramers_v for relationship in relationships])
+
+    threshold = np.percentile(scores, percentile)
+
+    effective_threshold = max(threshold, minimum_strength)
+
+    return [
+        relationship
+        for relationship in relationships
+        if relationship.cramers_v >= effective_threshold
+    ]
+
+
+def plan_categorical_categorical_analysis(
+    relationship: CategoricalCategoricalRelationship,
+) -> AnalysisCandidate:
+    """
+    Convierte una asociación categórica ↔ categórica
+    en un candidato de análisis.
+    """
+
+    return AnalysisCandidate(
+        column_x=relationship.column_x,
+        column_y=relationship.column_y,
+        relationship_type="categorical_categorical",
+        relevance_score=relationship.cramers_v,
+        recommended_metrics=["chi2", "cramers_v", "top_associations"],
+        visualization_plans=[
+            VisualizationPlan(
+                chart_type="heatmap",
+                max_categories=HEATMAP_MAX_CATEGORIES,
+            ),
+        ],
+        recommended_visualizations=["heatmap"],
+    )
+
+
+# ---------------------------------------------------------------------------
 # Numeric → numeric
 # ---------------------------------------------------------------------------
 
 
 def select_numeric_numeric_relationships(
     relationships: list[NumericRelationship],
-    percentile: float = 75.0,
-    minimum_strength: float = 0.5,
+    percentile: float = RELATIONSHIP_SELECTION_PERCENTILE,
+    minimum_strength: float = MIN_CORRELATION_STRENGTH,
 ) -> list[NumericRelationship]:
     """
     Selecciona relaciones numéricas relevantes.
@@ -321,7 +389,7 @@ def plan_numeric_numeric_visualization(
             chart_type=chart_type,
             aggregation="mean",
             sort="descending",
-            max_categories=10,
+            max_categories=BAR_MAX_CATEGORIES,
             group_by=profile_x.name,
         )
 
@@ -332,7 +400,7 @@ def plan_numeric_numeric_visualization(
             chart_type=chart_type,
             aggregation="mean",
             sort="descending",
-            max_categories=10,
+            max_categories=BAR_MAX_CATEGORIES,
             group_by=profile_y.name,
         )
 
@@ -343,25 +411,25 @@ def plan_numeric_numeric_visualization(
 
     n = relationship.n_observations
 
-    if n <= 1000:
+    if n <= SCATTER_NO_SAMPLING_MAX:
         return VisualizationPlan(
             chart_type="scatter",
             sampling=False,
             trend_line=True,
         )
 
-    if n <= 5000:
+    if n <= SCATTER_LIGHT_SAMPLING_MAX:
         return VisualizationPlan(
             chart_type="scatter",
             sampling=True,
-            max_points=1500,
+            max_points=SCATTER_LIGHT_SAMPLING_POINTS,
             trend_line=True,
         )
 
     return VisualizationPlan(
         chart_type="scatter",
         sampling=True,
-        max_points=2000,
+        max_points=SCATTER_MAX_POINTS,
         trend_line=True,
     )
 
@@ -405,61 +473,3 @@ def plan_numeric_numeric_analysis(
             )
         ),
     )
-
-
-def test_numeric_numeric_visualization_uses_ranked_bar_for_low_cardinality_discrete_x():
-    relationship = NumericRelationship(
-        column_x="bathrooms",
-        column_y="area",
-        pearson=0.6,
-        spearman=0.7,
-        n_observations=1000,
-    )
-
-    profile_x = make_numeric_profile(
-        "bathrooms",
-        is_discrete=True,
-    )
-
-    profile_y = make_numeric_profile(
-        "area",
-        is_discrete=False,
-    )
-
-    plan = plan_numeric_numeric_visualization(
-        relationship,
-        profile_x,
-        profile_y,
-    )
-
-    assert plan.chart_type == "ranked_bar"
-    assert plan.group_by == "bathrooms"
-
-
-def test_numeric_numeric_visualization_uses_ranked_bar_for_low_cardinality_discrete_y():
-    relationship = NumericRelationship(
-        column_x="area",
-        column_y="bathrooms",
-        pearson=0.6,
-        spearman=0.7,
-        n_observations=1000,
-    )
-
-    profile_x = make_numeric_profile(
-        "area",
-        is_discrete=False,
-    )
-
-    profile_y = make_numeric_profile(
-        "bathrooms",
-        is_discrete=True,
-    )
-
-    plan = plan_numeric_numeric_visualization(
-        relationship,
-        profile_x,
-        profile_y,
-    )
-
-    assert plan.chart_type == "ranked_bar"
-    assert plan.group_by == "bathrooms"

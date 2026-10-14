@@ -1,5 +1,5 @@
-import pytest
 import pandas as pd
+import pytest
 
 from src.relationships import (
     calculate_categorical_numeric_relationship,

@@ -149,6 +149,22 @@ def print_statistics(report: AnalysisReport) -> None:
             print(f"  max:       {stats.max:.2f}")
             print(f"  skewness:  {stats.skewness:.2f}")
 
+    if report.numeric_distributions:
+        print()
+        print("DISTRIBUTIONS")
+        print("-" * 60)
+
+        for dist in report.numeric_distributions:
+            print()
+            print(dist.column_name)
+            print(f"  observations: {dist.n_observations}")
+            print(f"  skewness:     {dist.skewness:.2f}")
+            print(f"  kurtosis:     {dist.kurtosis:.2f}")
+            print(f"  modality:     {dist.modality} ({dist.n_modes} modes)")
+
+            if dist.top_5pct_share is not None:
+                print(f"  top 5% share: {dist.top_5pct_share:.1f}%")
+
     if report.categorical_statistics:
         print()
         print("CATEGORICAL VARIABLES")
@@ -172,22 +188,26 @@ def print_statistics(report: AnalysisReport) -> None:
 def print_relationships(report: AnalysisReport) -> None:
     print_header("RELATIONSHIPS")
 
-    if not report.numeric_relationships:
-        print("No numeric relationships found.")
-        return
-
     print("NUMERIC ↔ NUMERIC")
     print("-" * 60)
 
-    for relationship in report.numeric_relationships:
-        print()
-        print(f"{relationship.column_x} <-> {relationship.column_y}")
-        print(f"  Pearson:   {relationship.pearson:.3f}")
-        print(f"  Spearman:  {relationship.spearman:.3f}")
-        print(f"  n:         {relationship.n_observations}")
+    if not report.numeric_relationships:
+        print("No numeric relationships found.")
+    else:
+        for relationship in report.numeric_relationships:
+            print()
+            print(f"{relationship.column_x} <-> {relationship.column_y}")
+            print(f"  Pearson:   {relationship.pearson:.3f}")
+            print(f"  Spearman:  {relationship.spearman:.3f}")
+            print(f"  n:         {relationship.n_observations}")
 
+    print()
     print("CATEGORICAL ↔ NUMERIC")
     print("-" * 60)
+
+    if not report.categorical_numeric_relationships:
+        print("No categorical-numeric relationships found.")
+        return
 
     for relationship in report.categorical_numeric_relationships:
         print()
@@ -206,6 +226,72 @@ def print_relationships(report: AnalysisReport) -> None:
         for group, count in relationship.group_counts.items():
             print(f"    {group}: {count}")
 
+    if report.categorical_categorical_relationships:
+        print()
+        print("CATEGORICAL ↔ CATEGORICAL")
+        print("-" * 60)
+
+        for relationship in report.categorical_categorical_relationships:
+            print()
+            print(f"{relationship.column_x} <-> {relationship.column_y}")
+            print(f"  chi2:      {relationship.chi2:.3f}")
+            print(f"  p-value:   {relationship.p_value:.3g}")
+            print(f"  cramers_v: {relationship.cramers_v:.3f}")
+            print(f"  n:         {relationship.n_observations}")
+
+
+def print_insights(report: AnalysisReport) -> None:
+    print_header("EXECUTIVE SUMMARY")
+
+    if report.executive_summary:
+        for insight in report.executive_summary:
+            print()
+            print(f"[{insight.severity.upper()}] ({insight.category}) {insight.title}")
+            print(f"  {insight.message}")
+
+            for caveat in insight.caveats:
+                print(f"  caveat: {caveat}")
+    else:
+        print("No findings to summarize.")
+
+    print()
+    print_header("ALL INSIGHTS")
+
+    all_insights = (
+        report.quality_insights
+        + report.relationship_insights
+        + report.distribution_insights
+        + report.pattern_insights
+        + report.structure_insights
+        + report.aggregation_insights
+        + report.comparative_insights
+    )
+
+    if not all_insights:
+        print("No insights detected.")
+        return
+
+    for insight in all_insights:
+        print()
+        print(f"[{insight.severity.upper()}] ({insight.category}) {insight.title}")
+        print(f"  {insight.message}")
+
+
+def print_analysis_candidates(report: AnalysisReport) -> None:
+    print()
+    print_header("ANALYSIS CANDIDATES")
+
+    if not report.analysis_candidates:
+        print("No analysis candidates found.")
+        return
+
+    for candidate in report.analysis_candidates:
+        print(f"  {candidate.column_x} → {candidate.column_y}")
+        print(f"    type: {candidate.relationship_type}")
+        print(f"    relevance: {candidate.relevance_score:.2f}")
+        print(f"    metrics: {', '.join(candidate.recommended_metrics)}")
+        print(f"    visualizations: {', '.join(candidate.recommended_visualizations)}")
+
 
 def print_report(report: AnalysisReport) -> None:
     print()
@@ -218,22 +304,13 @@ def print_report(report: AnalysisReport) -> None:
     print_quality(report)
     print_statistics(report)
     print_relationships(report)
+    print_insights(report)
+    print_analysis_candidates(report)
 
     print()
     print("=" * 60)
     print("Analysis complete.")
     print("=" * 60)
-
-
-def print_analysis_candidates(report: AnalysisReport) -> None:
-    print("\n  ANALYSIS CANDIDATES")
-
-    for candidate in report.analysis_candidates:
-        print(f"  {candidate.column_x} → {candidate.column_y}")
-        print(f"    type: {candidate.relationship_type}")
-        print(f"    relevance: {candidate.relevance_score:.2f}")
-        print(f"    metrics: {', '.join(candidate.recommended_metrics)}")
-        print(f"    visualizations: {', '.join(candidate.recommended_visualizations)}")
 
 
 def main() -> None:
@@ -247,6 +324,8 @@ def main() -> None:
 
     try:
         df = pd.read_csv(args.csv_path)
+    except pd.errors.EmptyDataError as exc:
+        raise SystemExit("Error: the dataset is empty.") from exc
     except Exception as exc:
         raise SystemExit(f"Error reading CSV: {exc}") from exc
 
@@ -256,18 +335,6 @@ def main() -> None:
     report = analyze_dataset(df)
 
     print_report(report)
-
-    print("\n  CATEGORICAL ↔ NUMERIC")
-
-    for relationship in report.categorical_numeric_relationships:
-        print(f"  {relationship.column_categorical} → {relationship.column_numeric}")
-        print(f"    group separation: {relationship.group_separation:.2f}")
-
-    print("\n ANALYSIS CANDIDATES")
-    print_analysis_candidates(report)
-
-    print("BOXPLOTS:", len(report.box_plots))
-    print("CATEGORICAL NUMERIC:", len(report.categorical_numeric_relationships))
 
 
 if __name__ == "__main__":

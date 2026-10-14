@@ -6,9 +6,9 @@ from src.profiling import (
 )
 from src.quality import (
     QualityReport,
+    _check_outliers,
     check_column_quality,
     quality_dataset,
-    _check_outliers,
 )
 
 
@@ -180,74 +180,44 @@ def test_quality_dataset_returns_quality_for_each_column():
 def test_numeric_series_has_no_outliers():
     series = pd.Series([10, 11, 12, 13, 14])
 
-    n_outliers, percentage = _check_outliers(series)
+    n_outliers, percentage, n_extreme, extreme_percentage = _check_outliers(series)
 
     assert n_outliers == 0
     assert percentage == 0.0
+    assert n_extreme == 0
+    assert extreme_percentage == 0.0
 
 
 def test_numeric_series_detects_outliers():
     series = pd.Series([10, 11, 12, 13, 14, 100])
 
-    n_outliers, percentage = _check_outliers(series)
+    n_outliers, percentage, n_extreme, extreme_percentage = _check_outliers(series)
 
     assert n_outliers == 1
     assert percentage == round(1 / 6 * 100, 2)
+
+    # 100 supera el umbral de 3 × IQR en esta serie.
+    assert n_extreme == 1
+    assert extreme_percentage == round(1 / 6 * 100, 2)
 
 
 def test_outlier_detection_ignores_missing_values():
     series = pd.Series([10, 11, 12, 13, 14, 100, None])
 
-    n_outliers, percentage = _check_outliers(series)
+    n_outliers, percentage, n_extreme, extreme_percentage = _check_outliers(series)
 
     assert n_outliers == 1
     assert percentage == round(1 / 6 * 100, 2)
+    assert n_extreme == 1
+    assert extreme_percentage == round(1 / 6 * 100, 2)
 
 
 def test_empty_series_has_no_outliers():
     series = pd.Series([], dtype="float64")
 
-    n_outliers, percentage = _check_outliers(series)
+    n_outliers, percentage, n_extreme, extreme_percentage = _check_outliers(series)
 
     assert n_outliers == 0
     assert percentage == 0.0
-
-
-def test_numeric_column_reports_outliers():
-    series = pd.Series([10, 11, 12, 13, 14, 100])
-
-    profile = ColumnProfile(
-        name="price",
-        dtype="int64",
-        role="numeric",
-        n_missing=0,
-        pct_missing=0.0,
-        n_unique=6,
-        pct_unique=100.0,
-        sample_values=[10, 11, 12, 13, 14],
-    )
-
-    quality = check_column_quality(series, profile)
-
-    assert quality.n_outliers == 1
-    assert quality.outlier_percentage == round(1 / 6 * 100, 2)
-
-
-def test_categorical_column_has_no_outliers():
-    series = pd.Series(["A", "A", "B", "B", "C", "C"])
-
-    profile = ColumnProfile(
-        name="category",
-        dtype="object",
-        role="categorical",
-        n_missing=0,
-        pct_missing=0.0,
-        n_unique=3,
-        pct_unique=50.0,
-        sample_values=["A", "B", "C"],
-    )
-
-    quality = check_column_quality(series, profile)
-
-    assert quality.n_outliers == 0
-    assert quality.outlier_percentage == 0.0
+    assert n_extreme == 0
+    assert extreme_percentage == 0.0

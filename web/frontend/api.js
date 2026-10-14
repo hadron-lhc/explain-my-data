@@ -38,3 +38,32 @@ export async function cleanFile(file, options) {
 
   return requestReport("/clean", formData, "Cleaning failed.");
 }
+
+export async function fetchHtmlReport(file, hiddenIds = [], hiddenCharts = []) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const params = new URLSearchParams();
+
+  if (hiddenIds.length > 0) {
+    params.set("hide", hiddenIds.join(","));
+  }
+
+  if (hiddenCharts.length > 0) {
+    params.set("hide_charts", hiddenCharts.join(","));
+  }
+
+  const query = params.toString() ? `?${params.toString()}` : "";
+
+  const response = await fetch(`${API_URL}/report${query}`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || "Report download failed.");
+  }
+
+  return response.blob();
+}

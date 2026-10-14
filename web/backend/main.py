@@ -4,14 +4,15 @@ import io
 import json
 
 import pandas as pd
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 
 from src.analysis import analyze_dataset
 from src.cleaning import CleaningConfig, clean_dataset
 from src.profiling import profile_dataset
 from src.quality import quality_dataset
-
+from src.reporting import render_html_report
 
 app = FastAPI(
     title="Explain My Data API",
@@ -120,6 +121,49 @@ def analyze_csv(file: UploadFile = File(...)):
         ) from exc
 
     return report
+
+
+@app.post("/report")
+def report_csv(
+    file: UploadFile = File(...),
+    hide: str = Query(
+        default="",
+        description="Insight ids ocultos en la UI, separados por coma.",
+    ),
+    hide_charts: str = Query(
+        default="",
+        description=(
+            "Identidades de charts ocultos en la UI "
+            "(visualizationIdentity), separadas por coma."
+        ),
+    ),
+):
+    """Genera un informe HTML autocontenido listo para descargar."""
+    df = read_csv_upload(file)
+    hide_ids = {item.strip() for item in hide.split(",") if item.strip()}
+    hidden_charts = {
+        item.strip() for item in hide_charts.split(",") if item.strip()
+    }
+
+    try:
+        report = analyze_dataset(df)
+        html_content = render_html_report(
+            report,
+            hide_ids=hide_ids,
+            hide_charts=hidden_charts,
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Report generation failed: {exc}",
+        ) from exc
+
+    return HTMLResponse(
+        content=html_content,
+        headers={
+            "Content-Disposition": 'attachment; filename="explain-my-data-report.html"',
+        },
+    )
 
 
 @app.post("/clean")

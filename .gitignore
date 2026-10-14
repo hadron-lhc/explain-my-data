@@ -39,12 +39,6 @@ htmlcov/
 .ipynb_checkpoints/
 
 # =========================
-# Streamlit
-# =========================
-
-.streamlit/secrets.toml
-
-# =========================
 # Environment variables / secrets
 # =========================
 
@@ -68,6 +62,8 @@ Thumbs.db
 
 data/raw/
 data/processed/
+data/generate_messy_dataset.py
+data/messy_sales.csv
 
 # =========================
 # Generated files
@@ -75,9 +71,5 @@ data/processed/
 
 *.log
 *.tmp
-
-
-data/generate_messy_dataset.py
-data/messy_sales.csv
-
-output.txt
+output*.txt
+outpu*.txt

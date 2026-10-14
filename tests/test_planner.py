@@ -3,14 +3,14 @@ import pytest
 from src.planner import (
     AnalysisCandidate,
     plan_categorical_numeric_analysis,
-    recommend_categorical_numeric_metrics,
-    select_categorical_numeric_relationships,
-    recommend_categorical_numeric_visualizations,
-    select_numeric_numeric_relationships,
     plan_numeric_numeric_analysis,
+    plan_numeric_numeric_visualization,
+    recommend_categorical_numeric_metrics,
+    recommend_categorical_numeric_visualizations,
     recommend_numeric_numeric_metrics,
     recommend_numeric_numeric_visualizations,
-    plan_numeric_numeric_visualization,
+    select_categorical_numeric_relationships,
+    select_numeric_numeric_relationships,
 )
 from src.profiling import ColumnProfile
 from src.relationships import (

@@ -1,7 +1,7 @@
 [project]
 name = "explain-my-data"
 version = "0.1.0"
-description = "Add your description here"
+description = "Mini-analizador de datasets sin ML: detecta patrones, genera insights y gráficas automáticamente."
 readme = "README.md"
 authors = [{ name = "tachyon-lhc", email = "valentingonzalezdaumes@gmail.com" }]
 requires-python = ">=3.12,<3.13"
@@ -11,21 +11,21 @@ dependencies = [
   "pandas>=3.0.5",
   "plotly>=7.0.0",
   "python-multipart>=0.0.32",
-  "scikit-learn>=1.9.1",
   "scipy>=1.18.1",
-  "streamlit>=1.63.0",
   "uvicorn[standard]>=0.52.4",
 ]
-
-[project.scripts]
-explain-my-data = "explain_my_data:main"
 
 [build-system]
 requires = ["uv_build>=0.12.13,<0.13.0"]
 build-backend = "uv_build"
 
 [dependency-groups]
-dev = ["pytest>=9.1.1", "ruff>=0.16.7"]
+dev = ["httpx>=0.28", "pytest>=9.1.1", "ruff>=0.16.7"]
 
 [tool.uv]
 package = false
+
+[tool.ruff.lint.per-file-ignores]
+# FastAPI idiom (File/Form defaults) and JSON payload validation
+# naturally raise ValueError for user input.
+"web/backend/main.py" = ["B008", "TRY004"]

@@ -9,9 +9,11 @@ No genera gráficos, conclusiones ni modifica el dataset.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List, Tuple
 
 import pandas as pd
+
+# Cantidad máxima de valores retenidos por columna categórica.
+VALUE_COUNTS_CAP = 20
 
 
 @dataclass
@@ -39,7 +41,11 @@ class CategoricalStatistics:
     count: int
     n_unique: int
 
-    top_values: List[Tuple[str, int]] = field(default_factory=list)
+    top_values: list[tuple[str, int]] = field(default_factory=list)
+
+    # Conteo completo de valores (hasta VALUE_COUNTS_CAP) para poder
+    # evaluar concentración/balance en insights.
+    value_counts: list[tuple[str, int]] = field(default_factory=list)
 
     dominant_value: str | None = None
     dominant_percentage: float = 0.0
@@ -80,24 +86,28 @@ def calculate_categorical_statistics(
     if non_null.empty:
         return None
 
-    value_counts = non_null.astype(str).value_counts()
+    counts_all = non_null.astype(str).value_counts()
 
-    top_values = [
-        (str(value), int(count)) for value, count in value_counts.head(5).items()
+    value_counts = [
+        (str(value), int(count))
+        for value, count in counts_all.head(VALUE_COUNTS_CAP).items()
     ]
 
-    dominant_value = str(value_counts.index[0])
+    top_values = value_counts[:5]
+
+    dominant_value = str(counts_all.index[0])
 
     dominant_percentage = round(
-        float(value_counts.iloc[0] / len(non_null) * 100),
+        float(counts_all.iloc[0] / len(non_null) * 100),
         2,
     )
 
     return CategoricalStatistics(
         column_name=column_name,
-        count=int(len(non_null)),
+        count=len(non_null),
         n_unique=int(non_null.nunique()),
         top_values=top_values,
+        value_counts=value_counts,
         dominant_value=dominant_value,
         dominant_percentage=dominant_percentage,
     )

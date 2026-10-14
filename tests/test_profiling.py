@@ -1,6 +1,5 @@
 import pandas as pd
-from src.profiling import infer_role
-from src.profiling import infer_role, profile_column
+
 from src.profiling import infer_role, profile_column, profile_dataset
 
 

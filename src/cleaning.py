@@ -7,14 +7,15 @@ import pandas as pd
 
 from src.profiling import DatasetProfile
 from src.quality import QualityReport
-
+from src.utils_stats import (
+    NUMERIC_CONVERSION_THRESHOLD,
+    OUTLIER_IQR_MULTIPLIER,
+    iqr_outlier_mask,
+)
 
 MISSING_STRATEGIES = {"keep", "remove", "mean", "median", "mode"}
 TYPE_CONVERSION_STRATEGIES = {"keep", "convert"}
 OUTLIER_STRATEGIES = {"keep", "remove"}
-
-OUTLIER_IQR_MULTIPLIER = 1.5
-_NUMERIC_CONVERSION_THRESHOLD = 0.90
 
 
 @dataclass
@@ -352,7 +353,7 @@ def _convert_type_mismatches(
         if conversion_rate is None:
             continue
 
-        if conversion_rate < _NUMERIC_CONVERSION_THRESHOLD:
+        if conversion_rate < NUMERIC_CONVERSION_THRESHOLD:
             continue
 
         series = cleaned_df[column.name]
@@ -402,26 +403,10 @@ def _find_outlier_rows(
     outlier_mask = pd.Series(False, index=df.index)
 
     for column_name in columns:
-        series = pd.to_numeric(df[column_name], errors="coerce")
-
-        numeric = series[np.isfinite(series)].dropna()
-
-        if numeric.empty:
-            continue
-
-        q1 = numeric.quantile(0.25)
-        q3 = numeric.quantile(0.75)
-        iqr = q3 - q1
-
-        if pd.isna(iqr) or iqr == 0:
-            continue
-
-        lower_bound = q1 - OUTLIER_IQR_MULTIPLIER * iqr
-        upper_bound = q3 + OUTLIER_IQR_MULTIPLIER * iqr
-
-        column_outliers = (series < lower_bound) | (series > upper_bound)
-
-        outlier_mask |= column_outliers.fillna(False)
+        outlier_mask |= iqr_outlier_mask(
+            df[column_name],
+            OUTLIER_IQR_MULTIPLIER,
+        )
 
     return outlier_mask
 

@@ -1,3 +1,165 @@
+function collectQualityIssues(report) {
+  const qualityColumns = report?.quality?.columns ?? [];
+
+  const duplicates = report?.profile?.n_duplicates ?? 0;
+
+  const missingCells = qualityColumns.reduce(
+    (sum, column) => sum + (column.missing_count ?? 0),
+    0,
+  );
+
+  const missingColumns = qualityColumns.filter(
+    (column) => (column.missing_count ?? 0) > 0,
+  ).length;
+
+  const typeMismatches = qualityColumns.filter(
+    (column) => column.is_type_mismatch,
+  ).length;
+
+  const outlierCells = qualityColumns.reduce(
+    (sum, column) => sum + (column.n_outliers ?? 0),
+    0,
+  );
+
+  const outlierColumns = qualityColumns.filter(
+    (column) => (column.n_outliers ?? 0) > 0,
+  ).length;
+
+  const total =
+    (duplicates > 0 ? 1 : 0) +
+    (missingCells > 0 ? 1 : 0) +
+    (typeMismatches > 0 ? 1 : 0) +
+    (outlierCells > 0 ? 1 : 0);
+
+  return {
+    duplicates,
+    missingCells,
+    missingColumns,
+    typeMismatches,
+    outlierCells,
+    outlierColumns,
+    total,
+  };
+}
+
+function issueRow(tone, title, detail) {
+  return `
+    <div class="cleaning-issue issue-${tone}">
+      <strong>${title}</strong>
+      <span>${detail}</span>
+    </div>
+  `;
+}
+
+export function renderCleaningIssues(report) {
+  const issuesContainer = document.getElementById("cleaning-issues");
+  const badge = document.getElementById("cleaning-badge");
+
+  const issues = collectQualityIssues(report);
+
+  if (badge) {
+    if (issues.total > 0) {
+      badge.textContent = `${issues.total} issue${issues.total === 1 ? "" : "s"} detected`;
+      badge.classList.remove("hidden", "issue-none");
+    } else {
+      badge.textContent = "No issues detected";
+      badge.classList.add("issue-none");
+      badge.classList.remove("hidden");
+    }
+  }
+
+  if (issuesContainer) {
+    if (issues.total === 0) {
+      issuesContainer.innerHTML = `
+        <div class="cleaning-issue issue-ok">
+          <strong>No issues detected</strong>
+          <span>The dataset looks clean already.</span>
+        </div>
+      `;
+    } else {
+      const rows = [];
+
+      if (issues.duplicates > 0) {
+        rows.push(
+          issueRow(
+            "warn",
+            `${issues.duplicates.toLocaleString()} duplicate rows`,
+            "Exact repeated observations.",
+          ),
+        );
+      }
+
+      if (issues.missingCells > 0) {
+        rows.push(
+          issueRow(
+            "warn",
+            `${issues.missingCells.toLocaleString()} missing cells in ${issues.missingColumns} column${issues.missingColumns === 1 ? "" : "s"}`,
+            "Fill them with mean/median/mode or drop the rows.",
+          ),
+        );
+      }
+
+      if (issues.typeMismatches > 0) {
+        rows.push(
+          issueRow(
+            "warn",
+            `${issues.typeMismatches} type mismatch column${issues.typeMismatches === 1 ? "" : "s"}`,
+            "Numeric-looking text detected.",
+          ),
+        );
+      }
+
+      if (issues.outlierCells > 0) {
+        rows.push(
+          issueRow(
+            "info",
+            `${issues.outlierCells.toLocaleString()} statistical outliers in ${issues.outlierColumns} column${issues.outlierColumns === 1 ? "" : "s"}`,
+            "Values outside the IQR fences.",
+          ),
+        );
+      }
+
+      issuesContainer.innerHTML = `
+        <div class="cleaning-issues-header">
+          <strong>Detected issues</strong>
+        </div>
+
+        ${rows.join("")}
+      `;
+    }
+  }
+
+  const removeDuplicatesLabel = document.getElementById(
+    "remove-duplicates-label",
+  );
+
+  if (removeDuplicatesLabel) {
+    removeDuplicatesLabel.textContent =
+      issues.duplicates > 0
+        ? `Remove ${issues.duplicates.toLocaleString()} duplicate rows`
+        : "Remove duplicate rows (none detected)";
+  }
+
+  const convertTypeLabel = document.getElementById(
+    "convert-type-mismatches-label",
+  );
+
+  if (convertTypeLabel) {
+    convertTypeLabel.textContent =
+      issues.typeMismatches > 0
+        ? `Convert ${issues.typeMismatches} type mismatch column${issues.typeMismatches === 1 ? "" : "s"}`
+        : "Convert type mismatches (none detected)";
+  }
+
+  const convertTypeCheckbox = document.getElementById(
+    "convert-type-mismatches",
+  );
+
+  if (convertTypeCheckbox) {
+    convertTypeCheckbox.checked = issues.typeMismatches > 0;
+  }
+}
+
 export function renderExtremeColumnOptions(report, extremeColumns) {
   extremeColumns.innerHTML = "";
 

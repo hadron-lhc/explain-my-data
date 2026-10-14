@@ -11,11 +11,9 @@ from __future__ import annotations
 
 import pandas as pd
 
-from src.profiling import ColumnProfile
+from src.profiling import CATEGORICAL_LIKE_ROLES, ColumnProfile
 from src.quality import ColumnQuality
-
-
-_NUMERIC_CONVERSION_THRESHOLD = 0.90
+from src.utils_stats import NUMERIC_CONVERSION_THRESHOLD
 
 
 def prepare_numeric_series(
@@ -44,7 +42,7 @@ def prepare_numeric_series(
     if quality.conversion_rate is None:
         return None
 
-    if quality.conversion_rate < _NUMERIC_CONVERSION_THRESHOLD:
+    if quality.conversion_rate < NUMERIC_CONVERSION_THRESHOLD:
         return None
 
     return pd.to_numeric(
@@ -58,7 +56,7 @@ def prepare_categorical_series(
     profile: ColumnProfile,
 ) -> pd.Series | None:
     """
-    Prepara una serie identificada como categórica.
+    Prepara una serie identificada como categórica o booleana.
 
     Normaliza espacios y capitalización para evitar que
     diferencias de formato sean interpretadas como categorías
@@ -69,7 +67,7 @@ def prepare_categorical_series(
     No modifica la serie original.
     """
 
-    if profile.role != "categorical":
+    if profile.role not in CATEGORICAL_LIKE_ROLES:
         return None
 
     return series.astype("string").str.strip().str.lower().astype("category")

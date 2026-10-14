@@ -17,13 +17,11 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import List, Tuple
 
 import pandas as pd
-from pathlib import Path
 
-
-PATH_DATA = Path(__file__).parent.parent / "data"
+# Roles que se analizan como variables categóricas de baja cardinalidad.
+CATEGORICAL_LIKE_ROLES = frozenset({"categorical", "boolean"})
 
 # ---------------------------------------------------------------------------
 # Estructura de "hechos" (Facts)
@@ -39,8 +37,8 @@ class ColumnProfile:
     pct_missing: float
     n_unique: int
     pct_unique: float
-    sample_values: List
-    notes: List[str] = field(default_factory=list)
+    sample_values: list
+    notes: list[str] = field(default_factory=list)
     is_discrete: bool = False
 
 
@@ -49,7 +47,7 @@ class DatasetProfile:
     n_rows: int
     n_columns: int
     n_duplicates: int
-    columns: List[ColumnProfile]
+    columns: list[ColumnProfile]
 
 
 # ---------------------------------------------------------------------------
@@ -162,7 +160,7 @@ def _is_discrete_numeric(series: pd.Series) -> bool:
     return numeric.nunique() <= 20
 
 
-def infer_role(series: pd.Series, name: str) -> Tuple[str, List[str]]:
+def infer_role(series: pd.Series, name: str) -> tuple[str, list[str]]:
     """
     Orden:
             id_name
@@ -178,7 +176,7 @@ def infer_role(series: pd.Series, name: str) -> Tuple[str, List[str]]:
             categorical/textual
     """
 
-    notes: List[str] = []
+    notes: list[str] = []
     n = len(series)
     n_unique = int(series.nunique(dropna=True))
 
@@ -218,25 +216,27 @@ def infer_role(series: pd.Series, name: str) -> Tuple[str, List[str]]:
         )
         return "numeric", notes
 
-    # 7. Identificador por unicidad
-    if _is_textual(series) and _looks_like_identifier_by_uniqueness(n_unique, n):
-        notes.append(
-            "Unicidad casi total sin nombre sugestivo: probable "
-            "identificador (ej. UUID, código de referencia)."
-        )
-        return "identifier", notes
-
-    # 8. Texto libre vs categorical
+    # 7. Texto libre vs identificador por unicidad vs categórica
     if _is_textual(series):
         non_null = series.dropna().astype(str)
         avg_len = non_null.str.len().mean() if len(non_null) else 0
         uniqueness_ratio = n_unique / n if n else 0
+
+        # Unicidad alta + strings largos = texto libre, no identificador.
         if uniqueness_ratio > 0.5 and avg_len > 20:
             notes.append(
                 "Alta cardinalidad y strings largos: probablemente texto "
                 "libre, no una categoría."
             )
             return "text", notes
+
+        if _looks_like_identifier_by_uniqueness(n_unique, n):
+            notes.append(
+                "Unicidad casi total sin nombre sugestivo: probable "
+                "identificador (ej. UUID, código de referencia)."
+            )
+            return "identifier", notes
+
         return "categorical", notes
 
     notes.append("No encajó en ninguna heurística conocida; revisar manualmente.")
@@ -282,7 +282,7 @@ def profile_dataset(df: pd.DataFrame) -> DatasetProfile:
     )
 
 
-def profile_summary(profiles: List[ColumnProfile]) -> pd.DataFrame:
+def profile_summary(profiles: list[ColumnProfile]) -> pd.DataFrame:
     """Vista tabular rápida para inspección humana."""
     return pd.DataFrame(
         [
@@ -297,75 +297,3 @@ def profile_summary(profiles: List[ColumnProfile]) -> pd.DataFrame:
             for p in profiles
         ]
     )
-
-
-def print_report(profile: DatasetProfile) -> None:
-    """Imprime un resumen legible del perfil del dataset."""
-    print("=" * 60)
-    print("DATASET PROFILE")
-    print("=" * 60)
-
-    print(f"Rows: {profile.n_rows}")
-    print(f"Columns: {profile.n_columns}")
-    print(f"Duplicate rows: {profile.n_duplicates}")
-
-    print()
-    print("COLUMN SUMMARY")
-    print("-" * 60)
-
-    summary = profile_summary(profile.columns)
-    print(summary.to_string(index=False))
-
-    print()
-    print("NOTES")
-    print("-" * 60)
-
-    for column in profile.columns:
-        if column.notes:
-            print(f"[{column.name}]")
-            for note in column.notes:
-                print(f"  - {note}")
-
-
-if __name__ == "__main__":
-    df = pd.read_csv(PATH_DATA / "examples/ventas.csv")
-    profiles = profile_dataset(df)
-    print_report(profiles)
-
-    """
-    print(df["Total_Venta"].head(20).tolist())
-    print(df["Total_Venta"].dtype)
-
-    print(df["Cantidad"].value_counts(dropna=False).sort_index())
-
-    customer_id = pd.Series([1001, 1002, 1003, 1004])
-    age = pd.Series([20, 21, 22, 23, 24] * 20)
-    active = pd.Series(["yes", "no", "yes", "yes"])
-    created_at = pd.Series(["2026-01-01", "2026-01-02", "2026-01-03", "2026-01-04"])
-    city = pd.Series(["MDQ", "BA", "MDQ", "BA"])
-    comment = pd.Series(["very long customer comment...", ...])
-    score = pd.Series([1.2, 2.5, 3.1, 4.7])
-    user_id = pd.Series(range(100, 200))
-
-    print(infer_role(customer_id, "customer_id"))  # ID
-    print(infer_role(age, "age"))  # Numerical integer
-    print(infer_role(active, "active"))  # Boolean
-    print(infer_role(created_at, "created_at"))  # Datetime
-    print(infer_role(city, "city"))  # Categorical
-    print(infer_role(score, "score"))  # Numerical
-    print(infer_role(user_id, "user_id"))  # ID
-    """
-
-    """
-    s1 = pd.Series(["60.0", "78.5", "90.2", "85.0", "92.3"])  # True
-    s2 = pd.Series(["1", "2", "3"])  # True
-    s3 = pd.Series(["MSQ", "BA", "MDQ"])  # False
-    s4 = pd.Series(
-        ["2026-01-01", "2026-01", "2026-01-02", "2026-01-03", "2026-01-04"]
-    )  # False
-
-    print(_looks_like_numeric(s1))  # True
-    print(_looks_like_numeric(s2))  # True
-    print(_looks_like_numeric(s3))  # False
-    print(_looks_like_numeric(s4))  # False
-    """

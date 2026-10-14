@@ -6,10 +6,12 @@ import numpy as np
 import pandas as pd
 
 from src.profiling import ColumnProfile, DatasetProfile
-
-_NUMERIC_CONVERSION_THRESHOLD = 0.90
-OUTLIER_IQR_MULTIPLIER = 1.5
-EXTREME_IQR_MULTIPLIER = 3.0
+from src.utils_stats import (
+    EXTREME_IQR_MULTIPLIER,
+    NUMERIC_CONVERSION_THRESHOLD,
+    OUTLIER_IQR_MULTIPLIER,
+    iqr_bounds,
+)
 
 
 @dataclass
@@ -88,7 +90,7 @@ def _check_type_mismatch(
     conversion_rate = float(converted.notna().mean())
     type_mismatch_count = int(converted.isna().sum())
 
-    is_type_mismatch = conversion_rate >= _NUMERIC_CONVERSION_THRESHOLD
+    is_type_mismatch = conversion_rate >= NUMERIC_CONVERSION_THRESHOLD
 
     return (
         type_mismatch_count,
@@ -132,17 +134,12 @@ def _check_outliers(
     if numeric.empty:
         return 0, 0.0, 0, 0.0
 
-    q1 = numeric.quantile(0.25)
-    q3 = numeric.quantile(0.75)
+    outlier_bounds = iqr_bounds(numeric, OUTLIER_IQR_MULTIPLIER)
 
-    iqr = q3 - q1
-
-    if iqr == 0:
+    if outlier_bounds is None:
         return 0, 0.0, 0, 0.0
 
-    # Standard statistical outlier threshold.
-    outlier_lower_bound = q1 - OUTLIER_IQR_MULTIPLIER * iqr
-    outlier_upper_bound = q3 + OUTLIER_IQR_MULTIPLIER * iqr
+    outlier_lower_bound, outlier_upper_bound = outlier_bounds
 
     outlier_mask = (numeric < outlier_lower_bound) | (numeric > outlier_upper_bound)
 
@@ -154,8 +151,12 @@ def _check_outliers(
     )
 
     # Conservative cleaning threshold.
-    extreme_lower_bound = q1 - EXTREME_IQR_MULTIPLIER * iqr
-    extreme_upper_bound = q3 + EXTREME_IQR_MULTIPLIER * iqr
+    extreme_bounds = iqr_bounds(numeric, EXTREME_IQR_MULTIPLIER)
+
+    if extreme_bounds is None:
+        return n_outliers, outlier_percentage, 0, 0.0
+
+    extreme_lower_bound, extreme_upper_bound = extreme_bounds
 
     extreme_mask = (numeric < extreme_lower_bound) | (numeric > extreme_upper_bound)
 

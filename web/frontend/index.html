@@ -15,46 +15,102 @@
     <main class="container">
       <header>
         <h1>Explain My Data</h1>
-        <p>Upload a CSV and discover what is inside.</p>
+        <p>Upload a CSV and discover what is inside. Heuristic analysis, no ML.</p>
       </header>
 
       <section class="upload-section">
-        <input type="file" id="file-input" accept=".csv" />
+        <div
+          id="dropzone"
+          class="dropzone"
+          role="button"
+          tabindex="0"
+          aria-label="Upload a CSV file: drop it here or press Enter to browse"
+        >
+          <svg
+            class="dropzone-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M12 16.5V4.5m0 0L7.5 9M12 4.5 16.5 9" />
+            <path d="M4 15v2.5A2.5 2.5 0 0 0 6.5 20h11a2.5 2.5 0 0 0 2.5-2.5V15" />
+          </svg>
 
-        <button id="analyze-button">Analyze dataset</button>
+          <p class="dropzone-title">Drag &amp; drop your CSV here</p>
+
+          <p class="dropzone-sub">
+            or <span class="dropzone-browse">click to browse files</span>
+          </p>
+
+          <p class="dropzone-hint">Comma-separated values &middot; .csv</p>
+        </div>
+
+        <input type="file" id="file-input" accept=".csv" class="visually-hidden" />
+
+        <div class="upload-footer">
+          <button id="analyze-button" class="button-primary">
+            Analyze dataset
+          </button>
+
+          <span id="selected-file" class="selected-file hidden"></span>
+        </div>
       </section>
 
       <p id="status"></p>
 
       <section id="results" class="hidden">
-        <section>
-          <h2>Dataset overview</h2>
+        <section class="report-section">
+          <h2>
+            <span class="section-number">1</span>
+            Dataset overview
+          </h2>
+          <p class="section-sub">
+            Shape of the dataset and the profile of every column.
+          </p>
 
           <div id="overview"></div>
         </section>
 
-        <section>
-          <h2>Quality</h2>
+        <section class="report-section">
+          <h2>
+            <span class="section-number">2</span>
+            Quality
+          </h2>
+          <p class="section-sub">
+            Missing values, outliers, duplicates and type problems.
+          </p>
 
           <div id="quality"></div>
         </section>
 
-        <section>
-          <h2>Statistics</h2>
-          <div id="statistics"></div>
-        </section>
-
-        <section id="cleaning-section">
+        <section id="cleaning-section" class="report-section">
           <div class="section-header">
-            <h2>Cleaning</h2>
+            <div>
+              <h2>
+                <span class="section-number">3</span>
+                Cleaning
+              </h2>
+              <p class="section-sub">
+                Review the detected issues, choose how to fix them and apply.
+              </p>
+            </div>
 
-            <button
-              id="toggle-cleaning-button"
-              type="button"
-              aria-expanded="false"
-            >
-              Configure cleaning
-            </button>
+            <div class="section-header-actions">
+              <span id="cleaning-badge" class="cleaning-badge hidden"></span>
+
+              <button
+                id="toggle-cleaning-button"
+                class="button-primary"
+                type="button"
+                aria-expanded="false"
+              >
+                Open cleaning
+              </button>
+            </div>
           </div>
 
           <div id="cleaning-overlay" class="cleaning-overlay hidden"></div>
@@ -81,6 +137,8 @@
             </div>
 
             <div class="cleaning-drawer-content">
+              <div id="cleaning-issues" class="cleaning-issues"></div>
+
               <div class="cleaning-group">
                 <h3>Missing values</h3>
 
@@ -113,7 +171,9 @@
                 <label class="cleaning-checkbox">
                   <input type="checkbox" id="remove-duplicates" checked />
                   <span>
-                    <strong>Remove duplicate rows</strong>
+                    <strong id="remove-duplicates-label">
+                      Remove duplicate rows
+                    </strong>
                     <small>Remove exact duplicate observations.</small>
                   </span>
                 </label>
@@ -132,13 +192,16 @@
                 <label class="cleaning-checkbox">
                   <input type="checkbox" id="convert-type-mismatches" />
                   <span>
-                    <strong>Convert type mismatches</strong>
+                    <strong id="convert-type-mismatches-label">
+                      Convert type mismatches
+                    </strong>
                     <small
                       >Convert numeric-looking text to numeric values.</small
                     >
                   </span>
                 </label>
               </div>
+
               <div class="cleaning-group">
                 <h3>Outliers</h3>
 
@@ -166,34 +229,122 @@
 
                 <div id="numeric-ranges"></div>
               </div>
-
-              <button id="undo-cleaning-button" type="button">
-                Undo cleaning
-              </button>
             </div>
 
             <div class="cleaning-drawer-footer">
-              <button id="clean-button" type="button">Clean dataset</button>
+              <button
+                id="undo-cleaning-button"
+                type="button"
+                class="button-secondary hidden"
+              >
+                Undo cleaning
+              </button>
+
+              <button id="cancel-cleaning-button" type="button" class="button-secondary">
+                Cancel
+              </button>
+
+              <button id="clean-button" type="button" class="button-primary">
+                Clean dataset
+              </button>
             </div>
           </aside>
 
           <div id="cleaning"></div>
         </section>
-        <section>
-          <h2>Relationships</h2>
-          <div id="relationships"></div>
+
+        <section class="report-section">
+          <h2>
+            <span class="section-number">4</span>
+            Patterns
+          </h2>
+          <p class="section-sub">
+            Technical facts detected in the data — statistical observations,
+            not conclusions.
+          </p>
+
+          <div id="patterns"></div>
         </section>
 
-        <section>
-          <h2>Recommended analysis</h2>
+        <section class="report-section">
+          <h2>
+            <span class="section-number">5</span>
+            Insights
+          </h2>
+          <p class="section-sub">
+            Key findings first, then every insight with its explanation,
+            associated pattern and charts. Use ✕ on a card to hide an
+            insight you don't need — the PDF respects hidden insights.
+          </p>
+
+          <div id="hidden-insights-bar" class="hidden-bar hidden">
+            <span id="hidden-insights-count">0 insights hidden</span>
+            <button
+              id="restore-hidden-button"
+              type="button"
+              class="button-secondary button-small"
+            >
+              Restore all
+            </button>
+          </div>
+
+          <div id="insights"></div>
+        </section>
+
+        <section class="report-section">
+          <h2>
+            <span class="section-number">6</span>
+            Additional charts
+          </h2>
+          <p class="section-sub">
+            Charts that are not attached to a specific insight. Use ✕ to
+            hide the ones you don't need — the PDF respects hidden charts.
+          </p>
+
+          <div id="hidden-charts-bar" class="hidden-bar hidden">
+            <span id="hidden-charts-count">0 charts hidden</span>
+            <button
+              id="restore-hidden-charts-button"
+              type="button"
+              class="button-secondary button-small"
+            >
+              Restore all
+            </button>
+          </div>
+
           <div id="charts"></div>
         </section>
 
-        <section>
-          <h2>Raw analysis report</h2>
+        <section id="downloads-section" class="report-section download-band">
+          <h2>
+            <span class="section-number">7</span>
+            Download report
+          </h2>
+          <p class="section-sub">
+            The PDF opens your browser's print dialog — choose "Save as PDF"
+            for a slide-style copy of the full report.
+          </p>
+
+          <div class="download-actions">
+            <button id="download-pdf-button" type="button" class="button-primary">
+              Download PDF report
+            </button>
+
+            <button id="download-report-button" type="button">
+              Download HTML report
+            </button>
+
+            <button id="download-csv-button" type="button" disabled>
+              Download cleaned CSV
+            </button>
+          </div>
+        </section>
+
+        <details id="raw-section" class="raw-details">
+          <summary>Raw analysis report (JSON)</summary>
 
           <pre id="raw-report"></pre>
-        </section>
+        </details>
       </section>
     </main>
 

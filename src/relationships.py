@@ -15,13 +15,23 @@ V1:
 - numérico ↔ numérico
     - Pearson
     - Spearman
+- categórica ↔ numérica
+    - medias/medianas por grupo
+    - separación de grupos
+- categórica ↔ categórica
+    - chi-cuadrado
+    - Cramér's V
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
+import numpy as np
 import pandas as pd
+from scipy.stats import chi2_contingency
+
+from src.utils_stats import OUTLIER_IQR_MULTIPLIER, grouped_iqr_bounds
 
 
 @dataclass
@@ -58,10 +68,23 @@ class CategoricalNumericRelationship:
 
 
 @dataclass
-class ContextualRelationship:
-    base_relationship: ...
-    conditioning_columns: list[str]
-    ...
+class CategoricalCategoricalRelationship:
+    """Relación entre dos variables categóricas."""
+
+    column_x: str
+    column_y: str
+
+    n_observations: int
+
+    n_groups_x: int
+    n_groups_y: int
+
+    chi2: float
+    p_value: float
+    cramers_v: float
+
+    # Celdas con el mayor residuo estandarizado (co-ocurrencias fuertes).
+    top_associations: list[tuple[str, str, float]] = field(default_factory=list)
 
 
 def calculate_numeric_relationship(
@@ -152,13 +175,10 @@ def calculate_categorical_numeric_relationship(
     else:
         group_separation = 0.0
 
-    q1 = grouped.quantile(0.25)
-    q3 = grouped.quantile(0.75)
-
-    iqr = q3 - q1
-
-    lower_bound = q1 - 1.5 * iqr
-    upper_bound = q3 + 1.5 * iqr
+    lower_bound, upper_bound = grouped_iqr_bounds(
+        grouped,
+        OUTLIER_IQR_MULTIPLIER,
+    )
 
     categorical_values = data["categorical"].astype("string")
 
@@ -184,4 +204,88 @@ def calculate_categorical_numeric_relationship(
         group_separation=group_separation,
         n_groups=n_groups,
         group_outliers=group_outliers,
+    )
+
+
+def calculate_categorical_categorical_relationship(
+    x: pd.Series,
+    y: pd.Series,
+    column_x: str,
+    column_y: str,
+    *,
+    max_categories: int = 20,
+    min_observations: int = 30,
+) -> CategoricalCategoricalRelationship | None:
+    """
+    Calcula la asociación entre dos variables categóricas.
+
+    Usa chi-cuadrado sobre la tabla de contingencia y Cramér's V
+    como medida de fuerza (0 = independencia, 1 = asociación total).
+
+    top_associations contiene las celdas con mayor residuo estandarizado:
+    pares de valores que co-ocurren más (o menos) de lo esperado.
+    """
+    if column_x == column_y:
+        return None
+
+    data = pd.DataFrame({"x": x, "y": y}).dropna()
+
+    if len(data) < min_observations:
+        return None
+
+    contingency = pd.crosstab(data["x"], data["y"])
+
+    n_groups_x, n_groups_y = contingency.shape
+
+    if n_groups_x < 2 or n_groups_y < 2:
+        return None
+
+    if n_groups_x > max_categories or n_groups_y > max_categories:
+        return None
+
+    try:
+        chi2, p_value, _, _ = chi2_contingency(contingency)
+    except ValueError:
+        return None
+
+    n = int(contingency.to_numpy().sum())
+
+    min_dim = min(n_groups_x, n_groups_y)
+
+    cramers_v = float(np.sqrt(chi2 / (n * (min_dim - 1)))) if n > 0 else 0.0
+
+    # Residuos estandarizados para interpretar qué celdas impulsan la asociación.
+    observed = contingency.to_numpy(dtype=float)
+    row_totals = observed.sum(axis=1, keepdims=True)
+    col_totals = observed.sum(axis=0, keepdims=True)
+    expected = row_totals @ col_totals / n
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        residuals = np.where(expected > 0, (observed - expected) / np.sqrt(expected), 0.0)
+
+    flat_indices = np.argsort(np.abs(residuals).ravel())[::-1][:5]
+
+    top_associations: list[tuple[str, str, float]] = []
+
+    for flat_index in flat_indices:
+        row_index, col_index = divmod(int(flat_index), n_groups_y)
+
+        top_associations.append(
+            (
+                str(contingency.index[row_index]),
+                str(contingency.columns[col_index]),
+                float(residuals[row_index, col_index]),
+            )
+        )
+
+    return CategoricalCategoricalRelationship(
+        column_x=column_x,
+        column_y=column_y,
+        n_observations=n,
+        n_groups_x=n_groups_x,
+        n_groups_y=n_groups_y,
+        chi2=float(chi2),
+        p_value=float(p_value),
+        cramers_v=cramers_v,
+        top_associations=top_associations,
     )
