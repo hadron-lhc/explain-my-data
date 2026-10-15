@@ -34,6 +34,28 @@ MIN_CRAMERS_V = 0.3
 # Fuerza mínima absoluta de una correlación (Pearson/Spearman).
 MIN_CORRELATION_STRENGTH = 0.5
 
+# Fuerza mínima absoluta de separación de grupos (cat↔num).
+MIN_GROUP_SEPARATION = 0.25
+
+# Correlación por encima de la cual un par numérico siempre se
+# selecciona, sin importar el percentil del dataset (p.ej. price~carat
+# en diamonds: 0.963 se perdía contra un p75 inflado por pares
+# geométricos).
+RELATIONSHIP_STRONG_FLOOR = 0.9
+
+# Cada columna hueca (sin ningún par seleccionado por el percentil)
+# conserva su mejor par como mínimo, aunque quede por debajo del
+# percentil; nunca por debajo del piso absoluto de su familia
+# (MIN_CORRELATION_STRENGTH / MIN_CRAMERS_V / MIN_GROUP_SEPARATION).
+RELATIONSHIP_PER_COLUMN_TOP = 1
+
+# En cat↔num top-1 no alcanza: los mejores partners moderados de una
+# columna suelen ser su 2do/3ro (en diamonds el de price es color
+# 0.56 y cut 0.28; en adult el de income es hours 0.53). Cada columna
+# hueca (sin ningún par en el percentil) conserva sus mejores pares
+# mientras superen MIN_GROUP_SEPARATION.
+GROUP_SEPARATION_PER_COLUMN_TOP = 3
+
 # --- Visualizaciones --------------------------------------------------------
 
 # Scatters sin muestreo para muestras pequeñas.

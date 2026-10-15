@@ -17,10 +17,14 @@ import numpy as np
 
 from src.config import (
     BAR_MAX_CATEGORIES,
+    GROUP_SEPARATION_PER_COLUMN_TOP,
     HEATMAP_MAX_CATEGORIES,
     MIN_CORRELATION_STRENGTH,
     MIN_CRAMERS_V,
+    MIN_GROUP_SEPARATION,
+    RELATIONSHIP_PER_COLUMN_TOP,
     RELATIONSHIP_SELECTION_PERCENTILE,
+    RELATIONSHIP_STRONG_FLOOR,
     SCATTER_LIGHT_SAMPLING_MAX,
     SCATTER_LIGHT_SAMPLING_POINTS,
     SCATTER_MAX_POINTS,
@@ -73,6 +77,51 @@ class AnalysisCandidate:
     recommended_visualizations: list[str] = field(
         default_factory=list,
     )
+
+
+# ---------------------------------------------------------------------------
+# Selección de relaciones — helpers de override
+# ---------------------------------------------------------------------------
+
+
+def _add_top_per_column(
+    chosen: set[tuple[str, str]],
+    relationships: list,
+    pair_of,
+    score_of,
+    minimum: float,
+    top_n: int = RELATIONSHIP_PER_COLUMN_TOP,
+) -> None:
+    """
+    Añade al set de selección el top-N de pares por columna.
+
+    Solo aplican las columnas "huecas": si una columna ya tiene al
+    menos un par seleccionado por el percentil, su top-N no corre —
+    así el override recupera a las columnas que el percentil dejó
+    sin ningún par (price/income en diamonds/adult) sin arrastrar
+    pares medios de columnas que ya tienen relaciones buenas.
+
+    Un par solo entra si su score supera el piso absoluto `minimum`
+    de su familia: el override nunca degrada la fuerza mínima.
+    """
+
+    per_column: dict[str, list] = {}
+
+    for relationship in relationships:
+        for column in pair_of(relationship):
+            per_column.setdefault(column, []).append(relationship)
+
+    covered = {column for pair in chosen for column in pair}
+
+    for column, column_relationships in per_column.items():
+        if column in covered:
+            continue
+
+        ranked = sorted(column_relationships, key=score_of, reverse=True)
+
+        for relationship in ranked[:top_n]:
+            if score_of(relationship) >= minimum:
+                chosen.add(pair_of(relationship))
 
 
 # ---------------------------------------------------------------------------
@@ -205,28 +254,58 @@ def plan_categorical_numeric_analysis(
 def select_categorical_numeric_relationships(
     relationships: list[CategoricalNumericRelationship],
     percentile: float = RELATIONSHIP_SELECTION_PERCENTILE,
+    minimum_separation: float = MIN_GROUP_SEPARATION,
 ) -> list[CategoricalNumericRelationship]:
     """
     Selecciona relaciones categóricas → numéricas relevantes
     según su posición relativa dentro del dataset.
 
     Utiliza group_separation como señal de relevancia.
+
+    Base: percentil relativo del dataset.
+
+    Override (solo agrega pares): cada columna hueca (sin ningún par
+    en el percentil) conserva sus mejores pares si su separación
+    supera `minimum_separation` — sin esto, columnas redundantes
+    inflan el percentil y echan relaciones meaningfuls (p.ej.
+    survived×pclass en titanic, price×cut en diamonds).
     """
 
     if not relationships:
         return []
 
-    scores = np.array([relationship.group_separation for relationship in relationships])
+    scores = np.array(
+        [relationship.group_separation for relationship in relationships]
+    )
 
     threshold = np.percentile(
         scores,
         percentile,
     )
 
+    chosen: set[tuple[str, str]] = {
+        (relationship.column_categorical, relationship.column_numeric)
+        for relationship in relationships
+        if relationship.group_separation >= threshold
+    }
+
+    _add_top_per_column(
+        chosen,
+        relationships,
+        pair_of=lambda relationship: (
+            relationship.column_categorical,
+            relationship.column_numeric,
+        ),
+        score_of=lambda relationship: relationship.group_separation,
+        minimum=minimum_separation,
+        top_n=GROUP_SEPARATION_PER_COLUMN_TOP,
+    )
+
     return [
         relationship
         for relationship in relationships
-        if relationship.group_separation >= threshold
+        if (relationship.column_categorical, relationship.column_numeric)
+        in chosen
     ]
 
 
@@ -245,6 +324,11 @@ def select_categorical_categorical_relationships(
 
     Cramér's V debe superar tanto el umbral relativo del dataset
     como una fuerza mínima absoluta (asociación media).
+
+    Override (solo agrega pares): cada columna categórica conserva
+    su mejor par si V supera el piso absoluto — recupera pares como
+    class~survived (V 0.34) cuando parejas redundantes inflan el
+    percentil y dejan a la columna sin ningún par.
     """
 
     if not relationships:
@@ -256,10 +340,27 @@ def select_categorical_categorical_relationships(
 
     effective_threshold = max(threshold, minimum_strength)
 
+    chosen: set[tuple[str, str]] = {
+        (relationship.column_x, relationship.column_y)
+        for relationship in relationships
+        if relationship.cramers_v >= effective_threshold
+    }
+
+    _add_top_per_column(
+        chosen,
+        relationships,
+        pair_of=lambda relationship: (
+            relationship.column_x,
+            relationship.column_y,
+        ),
+        score_of=lambda relationship: relationship.cramers_v,
+        minimum=minimum_strength,
+    )
+
     return [
         relationship
         for relationship in relationships
-        if relationship.cramers_v >= effective_threshold
+        if (relationship.column_x, relationship.column_y) in chosen
     ]
 
 
@@ -296,6 +397,7 @@ def select_numeric_numeric_relationships(
     relationships: list[NumericRelationship],
     percentile: float = RELATIONSHIP_SELECTION_PERCENTILE,
     minimum_strength: float = MIN_CORRELATION_STRENGTH,
+    strong_floor: float = RELATIONSHIP_STRONG_FLOOR,
 ) -> list[NumericRelationship]:
     """
     Selecciona relaciones numéricas relevantes.
@@ -305,19 +407,28 @@ def select_numeric_numeric_relationships(
 
     La fuerza se define como la mayor magnitud absoluta
     entre Pearson y Spearman.
+
+    Overrides (solo agregan pares, nunca quitan):
+    - un par con fuerza >= `strong_floor` (0.9) entra siempre:
+      recupera la relación insignia price~carat (0.963) cuando el
+      p75 del dataset está inflado por pares geométricos;
+    - cada columna sin ningún par en el percentil conserva sus
+      mejores pares si superan el piso absoluto (p.ej.
+      total_bill~size en tips, 0.595); tip~size (0.489) queda
+      fuera.
     """
 
     if not relationships:
         return []
 
+    def strength(relationship: NumericRelationship) -> float:
+        return max(
+            abs(relationship.pearson),
+            abs(relationship.spearman),
+        )
+
     scores = np.array(
-        [
-            max(
-                abs(relationship.pearson),
-                abs(relationship.spearman),
-            )
-            for relationship in relationships
-        ]
+        [strength(relationship) for relationship in relationships]
     )
 
     threshold = np.percentile(
@@ -330,14 +441,31 @@ def select_numeric_numeric_relationships(
         minimum_strength,
     )
 
+    chosen: set[tuple[str, str]] = {
+        (relationship.column_x, relationship.column_y)
+        for relationship in relationships
+        if strength(relationship) >= effective_threshold
+    }
+
+    for relationship in relationships:
+        if strength(relationship) >= strong_floor:
+            chosen.add((relationship.column_x, relationship.column_y))
+
+    _add_top_per_column(
+        chosen,
+        relationships,
+        pair_of=lambda relationship: (
+            relationship.column_x,
+            relationship.column_y,
+        ),
+        score_of=strength,
+        minimum=minimum_strength,
+    )
+
     return [
         relationship
         for relationship in relationships
-        if max(
-            abs(relationship.pearson),
-            abs(relationship.spearman),
-        )
-        >= effective_threshold
+        if (relationship.column_x, relationship.column_y) in chosen
     ]
 
 

@@ -9,11 +9,13 @@ from src.planner import (
     recommend_categorical_numeric_visualizations,
     recommend_numeric_numeric_metrics,
     recommend_numeric_numeric_visualizations,
+    select_categorical_categorical_relationships,
     select_categorical_numeric_relationships,
     select_numeric_numeric_relationships,
 )
 from src.profiling import ColumnProfile
 from src.relationships import (
+    CategoricalCategoricalRelationship,
     CategoricalNumericRelationship,
     NumericRelationship,
 )
@@ -100,9 +102,13 @@ def test_select_categorical_numeric_relationships_selects_high_scores():
         percentile=75,
     )
 
-    assert len(selected) == 2
-    assert selected[0].group_separation == pytest.approx(0.4)
-    assert selected[1].group_separation == pytest.approx(2.0)
+    # Percentil p75 deja D y E; el override top-1 por columna añade
+    # C (0.3 >= MIN_GROUP_SEPARATION 0.25). A y B quedan fuera
+    # por debajo del piso absoluto.
+    assert len(selected) == 3
+    assert selected[0].group_separation == pytest.approx(0.3)
+    assert selected[1].group_separation == pytest.approx(0.4)
+    assert selected[2].group_separation == pytest.approx(2.0)
 
 
 def test_select_categorical_numeric_relationships_returns_empty_for_empty_input():
@@ -335,8 +341,16 @@ def test_select_numeric_numeric_relationships():
         percentile=75.0,
     )
 
-    assert len(selected) == 1
-    assert selected[0].column_y == "e"
+    # Percentil deja solo e; los overrides añaden d (strong floor 0.9)
+    # y c (top-1 de la columna c, 0.6 >= piso 0.5). b queda fuera.
+    selected_names = {relationship.column_y for relationship in selected}
+
+    assert selected_names == {"c", "d", "e"}
+    assert [relationship.column_y for relationship in selected] == [
+        "c",
+        "d",
+        "e",
+    ]
 
 
 def test_numeric_numeric_selection_uses_absolute_correlation():
@@ -523,9 +537,11 @@ def test_numeric_numeric_selection_uses_relative_threshold():
         minimum_strength=0.5,
     )
 
+    # Percentil 50 deja d y e; el top-1 por columna añade c
+    # (0.6 >= piso 0.5). b queda fuera por debajo del piso.
     selected_names = {relationship.column_y for relationship in selected}
 
-    assert selected_names == {"d", "e"}
+    assert selected_names == {"c", "d", "e"}
 
 
 def test_numeric_numeric_visualization_plan_depends_on_sample_size():
@@ -680,3 +696,136 @@ def test_numeric_numeric_visualization_uses_ranked_bar_for_low_cardinality_discr
 
     assert plan.chart_type == "ranked_bar"
     assert plan.group_by == "bathrooms"
+
+
+def make_categorical_relationship(
+    column_x: str,
+    column_y: str,
+    cramers_v: float,
+) -> CategoricalCategoricalRelationship:
+    return CategoricalCategoricalRelationship(
+        column_x=column_x,
+        column_y=column_y,
+        n_observations=100,
+        n_groups_x=3,
+        n_groups_y=2,
+        chi2=10.0,
+        p_value=0.0,
+        cramers_v=cramers_v,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Regresiones QA (playground explain-my-data-qa): los selectores deben
+# recuperar relaciones meaningfuls que el percentil solo echaba, sin
+# relajar los pisos absolutos.
+# ---------------------------------------------------------------------------
+
+
+def test_numnum_strong_pair_survives_high_percentile():
+    # diamonds: los pares geométricos x/y/z/carat (~0.97-0.99) inflan
+    # el p75 (0.98); price~carat (0.963) queda fuera del percentil y
+    # tampoco es top-1 de price (price~y 0.97 es mejor) → solo el
+    # strong floor (0.9) lo recupera.
+    relationships = [
+        make_numeric_relationship("price", "carat", 0.963, 0.961),
+        make_numeric_relationship("price", "y", 0.955, 0.970),
+        make_numeric_relationship("x", "y", 0.974, 0.982),
+        make_numeric_relationship("x", "z", 0.966, 0.975),
+        make_numeric_relationship("y", "z", 0.978, 0.989),
+        make_numeric_relationship("carat", "x", 0.980, 0.985),
+        make_numeric_relationship("carat", "y", 0.951, 0.967),
+        make_numeric_relationship("carat", "z", 0.948, 0.961),
+        make_numeric_relationship("price", "depth", -0.011, 0.010),
+        make_numeric_relationship("price", "table", 0.120, 0.127),
+    ]
+
+    selected = select_numeric_numeric_relationships(relationships)
+
+    selected_pairs = {
+        (relationship.column_x, relationship.column_y)
+        for relationship in selected
+    }
+
+    assert ("price", "carat") in selected_pairs
+    assert ("price", "depth") not in selected_pairs
+    assert ("price", "table") not in selected_pairs
+
+
+def test_catnum_group_top1_survives_percentile():
+    # titanic: parejas redundantes (who/alive/sex/adult_male ~
+    # survived, separations 1.8-2.1) inflan el p75 (2.01);
+    # survived×pclass (0.696) queda fuera del percentil pero es el
+    # top-1 del lado categórico pclass y supera MIN_GROUP_SEPARATION
+    # (0.25).
+    relationships = [
+        make_relationship("who", "survived", 2.10),
+        make_relationship("alive", "survived", 2.05),
+        make_relationship("sex", "survived", 1.90),
+        make_relationship("adult_male", "survived", 1.80),
+        make_relationship("pclass", "survived", 0.696),
+        make_relationship("embarked", "pclass", 1.22),
+    ]
+
+    selected = select_categorical_numeric_relationships(relationships)
+
+    selected_pairs = {
+        (relationship.column_categorical, relationship.column_numeric)
+        for relationship in selected
+    }
+
+    assert ("pclass", "survived") in selected_pairs
+    assert ("embarked", "pclass") in selected_pairs
+
+
+def test_numnum_top1_respects_absolute_floor():
+    # tips: tip~total_bill (0.678) entra por percentil;
+    # total_bill~size (0.595) entra como top-1 de size;
+    # tip~size (0.489) NO entra: no es top-1 de ninguna columna y
+    # queda por debajo de MIN_CORRELATION_STRENGTH (0.5).
+    relationships = [
+        make_numeric_relationship("total_bill", "tip", 0.676, 0.678),
+        make_numeric_relationship("total_bill", "size", 0.569, 0.595),
+        make_numeric_relationship("tip", "size", 0.452, 0.489),
+    ]
+
+    selected = select_numeric_numeric_relationships(relationships)
+
+    selected_pairs = {
+        (relationship.column_x, relationship.column_y)
+        for relationship in selected
+    }
+
+    assert ("total_bill", "tip") in selected_pairs
+    assert ("total_bill", "size") in selected_pairs
+    assert ("tip", "size") not in selected_pairs
+
+
+def test_catcat_top1_respects_cramers_floor():
+    # adult: education~income (V 0.366) entra como top-1 de education
+    # (supera MIN_CRAMERS_V 0.3); sex~income (V 0.215) NO entra: no es
+    # top-1 de ninguna columna (sex su mejor par es relationship~sex
+    # 0.65; income es relationship~income 0.45) y el piso la deja
+    # fuera.
+    relationships = [
+        make_categorical_relationship("relationship", "sex", 0.65),
+        make_categorical_relationship("marital_status", "relationship", 0.49),
+        make_categorical_relationship("marital_status", "sex", 0.46),
+        make_categorical_relationship("marital_status", "income", 0.45),
+        make_categorical_relationship("relationship", "income", 0.45),
+        make_categorical_relationship("occupation", "sex", 0.42),
+        make_categorical_relationship("workclass", "occupation", 0.40),
+        make_categorical_relationship("education", "income", 0.366),
+        make_categorical_relationship("sex", "income", 0.215),
+    ]
+
+    selected = select_categorical_categorical_relationships(relationships)
+
+    selected_pairs = {
+        (relationship.column_x, relationship.column_y)
+        for relationship in selected
+    }
+
+    assert ("education", "income") in selected_pairs
+    assert ("marital_status", "income") in selected_pairs
+    assert ("sex", "income") not in selected_pairs

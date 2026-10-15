@@ -26,6 +26,7 @@ from src.config import (
     BOOLEAN_DOMINANT_ALERT_SHARE,
     EXECUTIVE_SUMMARY_MAX_WARNINGS,
     EXECUTIVE_SUMMARY_TOP_N,
+    MIN_GROUP_SEPARATION,
 )
 from src.distributions import NumericDistribution
 from src.patterns import GroupDifferencePattern, NumericOutlierPattern
@@ -350,7 +351,9 @@ def _numeric_relationship_insight(
 def _categorical_numeric_relationship_insight(
     relationship: CategoricalNumericRelationship,
 ) -> Insight | None:
-    if relationship.group_separation < 0.5:
+    # El piso coincide con el de selección (MIN_GROUP_SEPARATION):
+    # una relación seleccionada debe poder emitir su insight.
+    if relationship.group_separation < MIN_GROUP_SEPARATION:
         return None
 
     top_group = max(relationship.group_means, key=relationship.group_means.get)
