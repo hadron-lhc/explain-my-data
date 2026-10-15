@@ -133,8 +133,9 @@ src/
 web/
   backend/          FastAPI
   frontend/         UI (JS vanilla + Plotly)
-tests/              ~225 tests
+tests/              253 tests
 docs/ROADMAP.md     especificación completa
+docs/PLAN_V2.md     plan de mejora por fases (ejecución)
 ```
 
 ## Principios
@@ -147,5 +148,13 @@ docs/ROADMAP.md     especificación completa
 
 ## Estado
 
-V1 funcional: pipeline completo, 200+ tests, ruff limpio.
-Roadmap futuro en `docs/ROADMAP.md`.
+V2: pipeline completo + insights comparativos, **253 tests**, ruff
+limpio. La selección de relaciones incluye overrides (piso fuerte
+para pares ≥0.9 y top-N por columna "hueca") porque el percentil
+p75 solo echaba relaciones clásicas en datasets con columnas
+redundantes; validado contra un playground de QA local
+(`explain-my-data-qa`, 10 datasets clásicos con ground truth:
+recall de needs 44/46, claims 31/31, precisión medida 100%).
+
+Ruta de mejora por fases en [`docs/PLAN_V2.md`](docs/PLAN_V2.md);
+visión a largo plazo en [`docs/ROADMAP.md`](docs/ROADMAP.md).
