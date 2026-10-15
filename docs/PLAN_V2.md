@@ -20,7 +20,12 @@
 
 - [x] **F0 — Cimientos** (2026-10-15): Fase B commiteada, README
   actualizado, CI (pytest + ruff + smoke). Sin Pyright.
-- [ ] **F1 — Verificación ampliada**
+- [x] **F1 — Verificación ampliada** (2026-10-15): verify cubre
+  comparative/pattern/distribution/quality-extreme. Precisión 100%
+  (366/366), **cobertura 70.1%** (23.4% → 70.1%). +25 needs
+  comparativos/pattern en `known/` (✓69 total). Directiva nueva
+  `skip:` para needs deliberadamente ausentes; `check --strict` ahora
+  es un gate real (exit 0).
 - [ ] **F2 — Curación de insights**
 - [ ] **F3 — Análisis temporal (V3a)**
 - [ ] **F4 — Inferencia estadística (V3b)**
@@ -30,6 +35,10 @@
 Línea base QA al entrar en F0: `✓44/46 · claims 31/31 · absent✗0 ·
 ⚠0 · ℹ37` sobre 522 insights; verify precisión 100% (122/122),
 cobertura 23.4%; 253 tests.
+
+Línea base al cerrar F1: `✓69/69 · ⊘2 skips deliberados · claims
+31/31 · absent✗0 · ⚠0 · ℹ37` sobre 522 insights; verify precisión
+100% (366/366), **cobertura 70.1%**; `check --strict` exit 0.
 
 ---
 
