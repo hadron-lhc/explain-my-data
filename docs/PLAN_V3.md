@@ -53,6 +53,17 @@ Sobre titanic (93 insights), diamonds (68), adult (78):
 - [ ] **P3 — Validez contextual: missingness y significancia práctica**
 - [ ] **P4 — Narrativa y presupuesto de insights**
 - [ ] **P5 — Tarjetas más ricas (detalle y cross-links)**
+- [x] **G1 — QA transversal: `noise:` a nivel info** (2026-10-16):
+  `_evaluate_dataset` extiende el ruido a `severity=info`; un insight
+  info que matchea un `noise:` sin `need` que lo justifique es ✗
+  (`✗info`) y hace fallar `--strict` (los warnings siguen solo
+  silenciándose). Precedencia need > noise. Los 15 `known/*.md`
+  anclan sus `noise:` a títulos reales de warning (`... in`,
+  `duplicate rows detected`) para no cazar por subcadena las
+  recomendaciones de limpieza de F5. Línea base tras G1: `✓94/94 ·
+  ⊘2 · claims 56/56 · absent✗0 · ⚠0 · ℹ29 · ✗info0` sobre **550
+  insights** / 15 datasets; verify **100% (375/375)**, **cobertura
+  68.2%**; `check --strict` exit 0; 318 tests.
 
 (Línea base al entrar en P1 = línea base al cerrar F6: `✓94/94 · ⊘2 ·
 claims 56/56 · absent✗0 · ⚠0 · ℹ29` sobre **550 insights** / 15
@@ -266,12 +277,14 @@ contexto-verificable, no relleno.
 **Objetivo**: el harness puede verificar que el ruido de nivel
 `info` fue suprimido (hoy `noise:` solo silencia `warnings`).
 
-- `qa.py` `_check`: extender `_noise_hit` a insights `info` (hoy
-  solo cuenta `warnings_noised`). Cuando un insight `info` matchea un
-  `noise:`, se cuenta como "info silenciado" y **no** debe aparecer
-  (si aparece, es un fail: el ruido que deberíamos suprimir se emitió).
-  Ajustar `summary.md` para mostrar `ℹ info-silenciados` aparte de
-  `warnings`.
+- `qa.py` `_evaluate_dataset`: extender `_noise_hit` a insights `info`
+  (hoy solo cuenta `warnings_noised`). Un insight `info` que matchea
+  un `noise:` **sin** `need` que lo justifique es ✗ (`✗info`): el
+  ruido que debimos suprimir se emitió. Precedencia need > noise (si
+  un need lo cubre, es contenido esperado y pasa). Los warnings
+  mantienen la semántica de silencio (no fallan). `--strict` suma
+  `info_noised` a los fallos; `summary.md` muestra `✗info` y el
+  patrón/cita por dataset.
 - Integrado en P1-P3: cada fase que suprime tarjetas añade
   `noise:`/`absent:` en `known/*.md` correspondiente.
 
