@@ -135,7 +135,7 @@ src/
 web/
   backend/          FastAPI
   frontend/         UI (JS vanilla + Plotly)
-tests/              275 tests
+tests/              290 tests
 docs/ROADMAP.md     especificación completa
 docs/PLAN_V2.md     plan de mejora por fases (ejecución)
 ```
@@ -151,7 +151,7 @@ docs/PLAN_V2.md     plan de mejora por fases (ejecución)
 ## Estado
 
 V2: pipeline completo + insights comparativos + curación (un
-hallazgo = una tarjeta) + análisis temporal, **275 tests**, ruff
+hallazgo = una tarjeta) + análisis temporal, **290 tests**, ruff
 limpio. La selección de relaciones incluye overrides (piso fuerte
 para pares ≥0.9 y top-N por columna "hueca") porque el percentil
 p75 solo echaba relaciones clásicas en datasets con columnas

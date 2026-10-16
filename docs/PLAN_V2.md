@@ -47,7 +47,7 @@
   sintéticos con fechas (monthly_sales, daily_temperature,
   weekly_orders) + extractores verify temporales (tendencia,
   estacionalidad, régimen, huecos, extremos).
-- [ ] **F4 — Inferencia estadística (V3b)**
+- [x] **F4 — Inferencia estadística (V3b)**
 - [ ] **F5 — Calidad → limpieza recomendada (V5)**
 - [ ] **F6 — Target & recomendación ML (V4, sin entrenar)**
 
@@ -68,6 +68,11 @@ Línea base al cerrar F3: `✓77/77 · ⊘2 · claims 42/42 · absent✗0 ·
 ⚠0 · ℹ29` sobre **403 insights** (13 datasets, 3 temporales nuevos);
 verify precisión **100% (287/287)**, **cobertura 71.2%**;
 `check --strict` exit 0; 275 tests.
+
+Línea base al cerrar F4: `✓77/77 · ⊘2 · claims 52/52 · absent✗0 ·
+⚠0 · ℹ29` sobre **413 insights** (13 datasets, 10 inference
+insights nuevos); verify precisión **100% (297/297)**, **cobertura
+71.9%**; `check --strict` exit 0; 290 tests.
 
 ---
 

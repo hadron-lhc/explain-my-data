@@ -193,3 +193,26 @@ TEMPORAL_REGIME_MIN_SCORE = 0.8
 
 # Multiplicador de IQR para extremos sobre medias de período.
 TEMPORAL_OUTLIER_IQR_MULT = 3.0
+
+# --- Inferencia estadística (F4) ---------------------------------------------
+
+# Observaciones mínimas y grupos mínimos para emitir un test cat-num.
+INFERENCE_MIN_OBSERVATIONS = 30
+INFERENCE_MIN_GROUPS = 2
+
+# Umbral de significancia (raw y BH) y de n chico para caveat.
+INFERENCE_ALPHA = 0.05
+INFERENCE_SMALL_SAMPLE = 50
+
+# Corrección Benjamini-Hochberg sobre la familia de tests del dataset.
+INFERENCE_BH_ENABLED = True
+
+# Tamaños de efecto: Cohen's d para top-vs-rest y η² global; por
+# debajo de "prácticamente nulo" el hallazgo se califica como
+# "estadísticamente significativo pero efecto mínimo".
+INFERENCE_D_NEGLIGIBLE = 0.2
+INFERENCE_ETA2_NEGLIGIBLE = 0.01
+
+# Máximo de tests inferenciales por dataset (los de mayor |separación|
+# primero) para no inflar el informe.
+INFERENCE_MAX_TESTS = 10

@@ -33,6 +33,11 @@ from src.distributions import (
     NumericDistribution,
     calculate_numeric_distributions,
 )
+from src.inference import (
+    CategoricalNumericInference,
+    generate_inference_insights,
+    run_inference,
+)
 from src.insights import (
     Insight,
     generate_aggregation_insights,
@@ -130,6 +135,7 @@ class AnalysisReport:
     aggregation_insights: list[Insight] = field(default_factory=list)
     comparative_insights: list[Insight] = field(default_factory=list)
     temporal_insights: list[Insight] = field(default_factory=list)
+    inference_insights: list[Insight] = field(default_factory=list)
     executive_summary: list[Insight] = field(default_factory=list)
     scatter_plots: list[ScatterPlotData] = field(default_factory=list)
     bar_plots: list[BarPlotData] = field(default_factory=list)
@@ -139,6 +145,7 @@ class AnalysisReport:
 
     aggregations: list[CategoricalNumericAggregation] = field(default_factory=list)
     temporal_series: list[TemporalSeries] = field(default_factory=list)
+    inference_tests: list[CategoricalNumericInference] = field(default_factory=list)
     group_difference_patterns: list[GroupDifferencePattern] = field(
         default_factory=list
     )
@@ -612,6 +619,13 @@ def analyze_dataset(
         pattern_insights,
     )
 
+    # ---------------------------------------------------------
+    # 7b. INFERENCIA (significancia + tamaño de efecto, cat-num)
+    # ---------------------------------------------------------
+
+    inference_tests = run_inference(df, categorical_numeric_relationships)
+    inference_insights = generate_inference_insights(inference_tests)
+
     profiles_by_name = {column.name: column for column in profile.columns}
 
     analysis_candidates = [
@@ -760,7 +774,8 @@ def analyze_dataset(
         + structure_insights
         + aggregation_insights
         + comparative_insights
-        + temporal_insights,
+        + temporal_insights
+        + inference_insights,
     )
 
     return AnalysisReport(
@@ -781,6 +796,7 @@ def analyze_dataset(
         aggregation_insights=aggregation_insights,
         comparative_insights=comparative_insights,
         temporal_insights=temporal_insights,
+        inference_insights=inference_insights,
         executive_summary=executive_summary,
         scatter_plots=scatter_plots,
         bar_plots=bar_plots,
@@ -788,6 +804,7 @@ def analyze_dataset(
         heatmaps=heatmaps,
         line_plots=line_plots,
         temporal_series=temporal_series,
+        inference_tests=inference_tests,
         aggregations=aggregations,
         group_difference_patterns=group_difference_patterns,
         numeric_outlier_patterns=numeric_outlier_patterns,

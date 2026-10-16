@@ -39,6 +39,7 @@ _INSIGHT_LIST_FIELDS = (
     "aggregation_insights",
     "comparative_insights",
     "temporal_insights",
+    "inference_insights",
     "executive_summary",
 )
 
@@ -857,6 +858,7 @@ def render_html_report(
         + report.aggregation_insights
         + report.comparative_insights
         + report.temporal_insights
+        + report.inference_insights
     )
 
     # Orden temático: los hallazgos de la misma columna quedan
