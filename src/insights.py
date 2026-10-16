@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from src.aggregations import CategoricalNumericAggregation
 from src.config import (
     BOOLEAN_DOMINANT_ALERT_SHARE,
+    EXECUTIVE_PER_CATEGORY_MAX,
     EXECUTIVE_SUMMARY_MAX_WARNINGS,
     EXECUTIVE_SUMMARY_TOP_N,
     MIN_GROUP_SEPARATION,
@@ -964,13 +965,17 @@ def generate_executive_summary(
     *,
     top_n: int = EXECUTIVE_SUMMARY_TOP_N,
     max_warnings: int = EXECUTIVE_SUMMARY_MAX_WARNINGS,
+    max_per_category: int = EXECUTIVE_PER_CATEGORY_MAX,
 ) -> list[Insight]:
     """
     Selecciona los hallazgos más relevantes.
 
     Estrategia: como máximo `max_warnings` alerts de calidad
-    (para que no ahoguen los insights analíticos) y el resto
-    se completa por el mejor ranking de severidad + score.
+    (para que no ahoguen los insights analíticos) y el resto se
+    completa con selección estratificada por categoría (round-robin
+    en orden de score): los scores no son comparables entre familias
+    (un group_separation 2.0 compite contra un "ranking score 100"),
+    así cada familia aporta sus mejores hallazgos al resumen.
     """
     ranked = sorted(
         insights,
@@ -984,7 +989,55 @@ def generate_executive_summary(
     others = [insight for insight in ranked if insight.severity != "warning"]
 
     selected: list[Insight] = warnings[:max_warnings]
-    selected.extend(others[: max(top_n - len(selected), 0)])
+
+    by_category: dict[str, list[Insight]] = {}
+
+    for insight in others:
+        by_category.setdefault(insight.category, []).append(insight)
+
+    quota = max(top_n - len(selected), 0)
+    taken_per_category: dict[str, int] = {key: 0 for key in by_category}
+
+    while quota > 0 and any(by_category.values()):
+        progressed = False
+
+        for category in sorted(by_category):
+            queue = by_category[category]
+
+            if not queue:
+                continue
+
+            if taken_per_category[category] >= max_per_category:
+                continue
+
+            selected.append(queue.pop(0))
+            taken_per_category[category] += 1
+            quota -= 1
+            progressed = True
+
+            if quota == 0:
+                break
+
+        if not progressed:
+            break
+
+    # Si el reparto estratificado no llenó los slots (pocos datos o
+    # una sola categoría dominante), se completa por score puro: el
+    # resumen nunca queda corto por culpa de la cuota.
+    if quota > 0:
+        leftovers = [
+            insight
+            for queue in by_category.values()
+            for insight in queue
+        ]
+        leftovers.sort(
+            key=lambda insight: (
+                _SEVERITY_WEIGHT.get(insight.severity, 1.0) * 100.0
+                + insight.score
+            ),
+            reverse=True,
+        )
+        selected.extend(leftovers[:quota])
 
     # Solo si faltan slots se rellenan con warnings adicionales.
     if len(selected) < top_n:

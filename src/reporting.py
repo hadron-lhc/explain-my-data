@@ -764,6 +764,17 @@ def render_html_report(
         + report.comparative_insights
     )
 
+    # Orden temático: los hallazgos de la misma columna quedan
+    # juntos (el usuario navega por hallazgo, no por familia) y
+    # dentro de cada columna los más fuertes primero.
+    all_insights = sorted(
+        all_insights,
+        key=lambda insight: (
+            insight.columns[0].lower() if insight.columns else "",
+            -insight.score,
+        ),
+    )
+
     figures = _figures_by_chart_id(report)
     consumed: set[str] = set()
 

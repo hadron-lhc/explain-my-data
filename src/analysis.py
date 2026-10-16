@@ -28,6 +28,7 @@ from src.config import (
     SCATTER_MAX_POINTS,
     SCATTER_NO_SAMPLING_MAX,
 )
+from src.curation import curate_insights
 from src.distributions import (
     NumericDistribution,
     calculate_numeric_distributions,
@@ -552,6 +553,13 @@ def analyze_dataset(
         selected_numeric_relationships,
         selected_categorical_numeric_relationships,
         selected_categorical_categorical_relationships,
+    )
+
+    # Un hallazgo = una tarjeta: cap de patrones por par y dedupe
+    # relationship↔pattern (src/curation.py).
+    relationship_insights, pattern_insights = curate_insights(
+        relationship_insights,
+        pattern_insights,
     )
 
     profiles_by_name = {column.name: column for column in profile.columns}

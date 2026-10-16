@@ -153,3 +153,15 @@ COMPARATIVE_DRIVER_MAX = 5
 COMPARATIVE_CONSISTENCY_MAX = 3
 COMPARATIVE_BALANCED_MAX = 3
 COMPARATIVE_NULL_MAX = 5
+
+# --- Curación de insights (un hallazgo = una tarjeta) ------------------------
+
+# Máximo de patrones "stands out" por par (grupo, numérico): los grupos
+# intermedios de un mismo par añaden página sin añadir hallazgo; quedan
+# los extremos más estandarizados.
+PATTERN_PER_PAIR_CAP = 2
+
+# Máximo de insights del resumen ejecutivo por categoría: el ranking
+# puro por score favorece familias con escalas grandes (comparativos)
+# y ahoga distribuciones/relaciones.
+EXECUTIVE_PER_CATEGORY_MAX = 3

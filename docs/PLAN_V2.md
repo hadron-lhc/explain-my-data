@@ -26,7 +26,15 @@
   comparativos/pattern en `known/` (✓69 total). Directiva nueva
   `skip:` para needs deliberadamente ausentes; `check --strict` ahora
   es un gate real (exit 0).
-- [ ] **F2 — Curación de insights**
+- [x] **F2 — Curación de insights** (2026-10-15): un hallazgo = una
+  tarjeta. `src/curation.py`: cap de patrones por par (extremos
+  firmados, `PATTERN_PER_PAIR_CAP=2`) + dedupe relationship↔pattern
+  (la tarjeta "differs across" se pliega como evidence/caveat del
+  patrón primario). Resumen ejecutivo estratificado por categoría
+  (`EXECUTIVE_PER_CATEGORY_MAX=3`, backfill por score). Páginas del
+  informe ordenadas por columna (agrupación temática). QA ya no
+  cuenta las reimpresiones del ejecutivo. 522 → **390 insights**
+  (promedio 39/dataset).
 - [ ] **F3 — Análisis temporal (V3a)**
 - [ ] **F4 — Inferencia estadística (V3b)**
 - [ ] **F5 — Calidad → limpieza recomendada (V5)**
@@ -39,6 +47,11 @@ cobertura 23.4%; 253 tests.
 Línea base al cerrar F1: `✓69/69 · ⊘2 skips deliberados · claims
 31/31 · absent✗0 · ⚠0 · ℹ37` sobre 522 insights; verify precisión
 100% (366/366), **cobertura 70.1%**; `check --strict` exit 0.
+
+Línea base al cerrar F2: `✓69/69 · ⊘2 · claims 31/31 · absent✗0 ·
+⚠0 · ℹ28` sobre **390 insights** (39/dataset, titanic 79); verify
+precisión **100% (276/276)**, **cobertura 70.8%**; `check --strict`
+exit 0; 263 tests.
 
 ---
 

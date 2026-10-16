@@ -124,6 +124,7 @@ src/
   planner.py        qué analizar y cómo graficarlo
   insights.py       plantillas de insights + resumen ejecutivo
   comparative_insights.py  rankings, drivers, nulos
+  curation.py       dedupe y cap de insights (un hallazgo=una tarjeta)
   visualizations.py constructores de gráficas
   reporting.py      informe HTML (plotly embebido)
   cleaning.py       transformaciones de limpieza
@@ -133,7 +134,7 @@ src/
 web/
   backend/          FastAPI
   frontend/         UI (JS vanilla + Plotly)
-tests/              253 tests
+tests/              263 tests
 docs/ROADMAP.md     especificación completa
 docs/PLAN_V2.md     plan de mejora por fases (ejecución)
 ```
@@ -148,13 +149,14 @@ docs/PLAN_V2.md     plan de mejora por fases (ejecución)
 
 ## Estado
 
-V2: pipeline completo + insights comparativos, **253 tests**, ruff
-limpio. La selección de relaciones incluye overrides (piso fuerte
-para pares ≥0.9 y top-N por columna "hueca") porque el percentil
-p75 solo echaba relaciones clásicas en datasets con columnas
-redundantes; validado contra un playground de QA local
-(`explain-my-data-qa`, 10 datasets clásicos con ground truth:
-recall de needs 44/46, claims 31/31, precisión medida 100%).
+V2: pipeline completo + insights comparativos + curación (un
+hallazgo = una tarjeta), **263 tests**, ruff limpio. La selección de
+relaciones incluye overrides (piso fuerte para pares ≥0.9 y top-N por
+columna "hueca") porque el percentil p75 solo echaba relaciones
+clásicas en datasets con columnas redundantes; validado contra un
+playground de QA local (`explain-my-data-qa`, 10 datasets clásicos
+con ground truth: recall de needs 69/69, claims 31/31, precisión
+medida 100%).
 
 Ruta de mejora por fases en [`docs/PLAN_V2.md`](docs/PLAN_V2.md);
 visión a largo plazo en [`docs/ROADMAP.md`](docs/ROADMAP.md).
