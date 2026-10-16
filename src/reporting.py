@@ -689,6 +689,34 @@ def _quality_findings_section(report: AnalysisReport) -> str:
     )
 
 
+def _cleaning_recommendations_section(report: AnalysisReport) -> str:
+    if not report.cleaning_recommendations:
+        return ""
+
+    rows = [
+        [
+            rec.column_name or "(dataset)",
+            rec.action,
+            rec.affected_rows,
+            rec.why,
+            rec.impact,
+        ]
+        for rec in report.cleaning_recommendations
+    ]
+
+    table = _table(
+        ["Column", "Suggested action", "Rows", "Why", "Impact"],
+        rows,
+    )
+
+    return (
+        "<h3>Cleaning recommendations</h3>"
+        "<p><em>Suggested only — nothing is applied automatically. "
+        "Apply explicitly via the cleaning pipeline.</em></p>"
+        + table
+    )
+
+
 def render_html_report(
     report: AnalysisReport,
     hide_ids: set[str] | None = None,
@@ -933,6 +961,7 @@ def render_html_report(
     quality_rows,
 )}
 {_quality_findings_section(report)}
+{_cleaning_recommendations_section(report)}
 </section>
 
 <section class="page">

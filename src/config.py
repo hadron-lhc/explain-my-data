@@ -216,3 +216,19 @@ INFERENCE_ETA2_NEGLIGIBLE = 0.01
 # Máximo de tests inferenciales por dataset (los de mayor |separación|
 # primero) para no inflar el informe.
 INFERENCE_MAX_TESTS = 10
+
+# --- Calidad → limpieza recomendada (F5) ------------------------------------
+
+# Nunca se aplica limpieza automáticamente: solo se recomienda.
+CLEANING_AUTO_APPLY = False
+
+# Máximo de % de missing en una columna para recomendar dropna por
+# columna (por encima, se recomienda imputar).
+CLEANING_DROPNA_MISSING_PCT = 40.0
+
+# Multiplicador IQR para el clip extremo recomendado (más
+# conservador que el outlier estándar).
+CLEANING_CLIP_IQR_MULTIPLIER = 3.0
+
+# Máximo de acciones de limpieza recomendadas por dataset.
+CLEANING_MAX_ACTIONS = 12

@@ -48,7 +48,7 @@
   weekly_orders) + extractores verify temporales (tendencia,
   estacionalidad, régimen, huecos, extremos).
 - [x] **F4 — Inferencia estadística (V3b)**
-- [ ] **F5 — Calidad → limpieza recomendada (V5)**
+- [x] **F5 — Calidad → limpieza recomendada (V5)**
 - [ ] **F6 — Target & recomendación ML (V4, sin entrenar)**
 
 Línea base QA al entrar en F0: `✓44/46 · claims 31/31 · absent✗0 ·
@@ -73,6 +73,12 @@ Línea base al cerrar F4: `✓77/77 · ⊘2 · claims 52/52 · absent✗0 ·
 ⚠0 · ℹ29` sobre **413 insights** (13 datasets, 10 inference
 insights nuevos); verify precisión **100% (297/297)**, **cobertura
 71.9%**; `check --strict` exit 0; 290 tests.
+
+Línea base al cerrar F5: `✓87/87 · ⊘2 · claims 55/55 · absent✗0 ·
+⚠0 · ℹ29` sobre **444 insights** (14 datasets, dirty_sales nuevo
+con type-mismatch/missing/inf/duplicates); verify precisión
+**100% (302/302)**, **cobertura 68.0%**; `check --strict` exit 0;
+298 tests.
 
 ---
 

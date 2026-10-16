@@ -19,6 +19,10 @@ from src.aggregations import (
     generate_categorical_numeric_aggregations,
     select_categorical_numeric_pairs,
 )
+from src.cleaning import (
+    CleaningRecommendation,
+    recommend_cleaning_actions,
+)
 from src.comparative_insights import generate_comparative_insights
 from src.config import (
     BAR_MAX_CATEGORIES,
@@ -146,6 +150,9 @@ class AnalysisReport:
     aggregations: list[CategoricalNumericAggregation] = field(default_factory=list)
     temporal_series: list[TemporalSeries] = field(default_factory=list)
     inference_tests: list[CategoricalNumericInference] = field(default_factory=list)
+    cleaning_recommendations: list[CleaningRecommendation] = field(
+        default_factory=list
+    )
     group_difference_patterns: list[GroupDifferencePattern] = field(
         default_factory=list
     )
@@ -358,6 +365,9 @@ def analyze_dataset(
     )
 
     quality_insights = generate_quality_insights(quality)
+
+    # Recomendaciones de limpieza (sugerencias, nunca auto-aplicadas).
+    cleaning_recommendations = recommend_cleaning_actions(quality, profile)
 
     # ---------------------------------------------------------
     # 3. PREPARATION
@@ -805,6 +815,7 @@ def analyze_dataset(
         line_plots=line_plots,
         temporal_series=temporal_series,
         inference_tests=inference_tests,
+        cleaning_recommendations=cleaning_recommendations,
         aggregations=aggregations,
         group_difference_patterns=group_difference_patterns,
         numeric_outlier_patterns=numeric_outlier_patterns,

@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
+from src.config import CLEANING_DROPNA_MISSING_PCT
 from src.profiling import DatasetProfile
 from src.quality import QualityReport
 from src.utils_stats import (
@@ -623,3 +624,122 @@ def clean_dataset(
     report.final_rows = len(cleaned_df)
 
     return cleaned_df, report
+
+
+# ---------------------------------------------------------------------------
+# Recomendaciones (F5): quality → acción sugerida, sin aplicar nada.
+# ---------------------------------------------------------------------------
+
+# Máximo de recomendaciones emitidas por dataset.
+CLEANING_MAX_RECOMMENDATIONS = 10
+
+
+@dataclass
+class CleaningRecommendation:
+    """Recomendación estructurada derivada del QualityReport."""
+
+    column_name: str | None  # None cuando aplica al dataset completo
+    action: str  # id de CleaningAction o estrategia sugerida
+    why: str
+    impact: str
+    affected_rows: int
+
+
+def recommend_cleaning_actions(
+    quality: QualityReport,
+    profile: DatasetProfile,
+    *,
+    max_recommendations: int = CLEANING_MAX_RECOMMENDATIONS,
+) -> list[CleaningRecommendation]:
+    """
+    Cierra el loop problema→acción: convierte las señales del
+    QualityReport en recomendaciones concretas (qué, por qué,
+    impacto estimado). Nunca modifica los datos.
+    """
+    recommendations: list[CleaningRecommendation] = []
+
+    if quality.n_duplicates > 0:
+        recommendations.append(
+            CleaningRecommendation(
+                column_name=None,
+                action="remove_duplicates",
+                why=(
+                    f"{quality.n_duplicates} duplicate rows "
+                    f"({quality.duplicate_percentage:.1f}% of all rows)."
+                ),
+                impact=(
+                    f"Removing duplicates drops {quality.n_duplicates} "
+                    f"rows; first occurrence retained."
+                ),
+                affected_rows=quality.n_duplicates,
+            )
+        )
+
+    for column in quality.columns:
+        if column.n_invalid_values > 0:
+            recommendations.append(
+                CleaningRecommendation(
+                    column_name=column.column_name,
+                    action="replace_invalid_values",
+                    why=(
+                        f"{column.n_invalid_values} non-finite numeric "
+                        f"values ({column.invalid_percentage:.1f}%)."
+                    ),
+                    impact=(
+                        f"Replacing inf/-inf with NaN in "
+                        f"'{column.column_name}' so downstream stats "
+                        f"ignore them; no rows dropped."
+                    ),
+                    affected_rows=column.n_invalid_values,
+                )
+            )
+
+        if column.is_type_mismatch:
+            conversion_pct = (
+                column.conversion_rate * 100 if column.conversion_rate else 0.0
+            )
+            recommendations.append(
+                CleaningRecommendation(
+                    column_name=column.column_name,
+                    action="convert_type_mismatches",
+                    why=(
+                        f"'{column.column_name}' is stored as text but "
+                        f"{conversion_pct:.1f}% of its values convert "
+                        f"to numeric."
+                    ),
+                    impact=(
+                        f"Converting '{column.column_name}' to numeric "
+                        f"enables statistics; "
+                        f"{column.type_mismatch_count} non-convertible "
+                        f"values become NaN."
+                    ),
+                    affected_rows=column.type_mismatch_count,
+                )
+            )
+
+        if (
+            column.missing_count > 0
+            and column.missing_percentage <= CLEANING_DROPNA_MISSING_PCT
+            and column.role == "numeric"
+        ):
+            recommendations.append(
+                CleaningRecommendation(
+                    column_name=column.column_name,
+                    action="impute_missing_median",
+                    why=(
+                        f"{column.missing_count} missing values "
+                        f"({column.missing_percentage:.1f}% of the "
+                        f"column)."
+                    ),
+                    impact=(
+                        f"Imputing '{column.column_name}' with its "
+                        f"median preserves all rows; review whether "
+                        f"missingness is informative first."
+                    ),
+                    affected_rows=column.missing_count,
+                )
+            )
+
+    recommendations.sort(key=lambda rec: rec.affected_rows, reverse=True)
+
+    return recommendations[:max_recommendations]
