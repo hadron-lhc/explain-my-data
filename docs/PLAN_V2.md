@@ -49,7 +49,7 @@
   estacionalidad, régimen, huecos, extremos).
 - [x] **F4 — Inferencia estadística (V3b)**
 - [x] **F5 — Calidad → limpieza recomendada (V5)**
-- [ ] **F6 — Target & recomendación ML (V4, sin entrenar)**
+- [x] **F6 — Target & recomendación ML (V4, sin entrenar)**
 
 Línea base QA al entrar en F0: `✓44/46 · claims 31/31 · absent✗0 ·
 ⚠0 · ℹ37` sobre 522 insights; verify precisión 100% (122/122),
@@ -79,6 +79,12 @@ Línea base al cerrar F5: `✓87/87 · ⊘2 · claims 55/55 · absent✗0 ·
 con type-mismatch/missing/inf/duplicates); verify precisión
 **100% (302/302)**, **cobertura 68.0%**; `check --strict` exit 0;
 298 tests.
+
+Línea base al cerrar F6: `✓94/94 · ⊘2 · claims 56/56 · absent✗0 ·
+⚠0 · ℹ29` sobre **550 insights** (15 datasets, churn nuevo con
+target binario churned + 5 features mixtas); verify precisión
+**100% (375/375)**, **cobertura 68.2%**; `check --strict` exit 0;
+318 tests.
 
 ---
 

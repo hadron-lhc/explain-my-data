@@ -232,3 +232,18 @@ CLEANING_CLIP_IQR_MULTIPLIER = 3.0
 
 # Máximo de acciones de limpieza recomendadas por dataset.
 CLEANING_MAX_ACTIONS = 12
+
+# --- Target & recomendación ML (F6) ------------------------------------------
+
+# Cardinalidad mínima de una columna para ser candidata a target.
+ML_MIN_TARGET_CARDINALITY = 2
+
+# Clases máximas para clasificación binaria / multiclase.
+ML_BINARY_MAX_CLASSES = 2
+ML_MULTICLASE_MAX_CLASSES = 20
+
+# Valores únicos mínimos de una numérica para considerar regresión.
+ML_REGRESSION_MIN_UNIQUE = 20
+
+# Máximo de candidatos a target devueltos (ordenados por score).
+ML_MAX_TARGET_CANDIDATES = 5

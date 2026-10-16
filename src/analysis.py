@@ -52,6 +52,7 @@ from src.insights import (
     generate_relationship_insights,
     generate_structure_insights,
 )
+from src.ml import MLRecommendation, build_ml_recommendation, generate_ml_insights
 from src.patterns import (
     GroupDifferencePattern,
     NumericOutlierPattern,
@@ -140,6 +141,7 @@ class AnalysisReport:
     comparative_insights: list[Insight] = field(default_factory=list)
     temporal_insights: list[Insight] = field(default_factory=list)
     inference_insights: list[Insight] = field(default_factory=list)
+    ml_insights: list[Insight] = field(default_factory=list)
     executive_summary: list[Insight] = field(default_factory=list)
     scatter_plots: list[ScatterPlotData] = field(default_factory=list)
     bar_plots: list[BarPlotData] = field(default_factory=list)
@@ -153,6 +155,7 @@ class AnalysisReport:
     cleaning_recommendations: list[CleaningRecommendation] = field(
         default_factory=list
     )
+    ml_recommendation: MLRecommendation | None = None
     group_difference_patterns: list[GroupDifferencePattern] = field(
         default_factory=list
     )
@@ -636,6 +639,19 @@ def analyze_dataset(
     inference_tests = run_inference(df, categorical_numeric_relationships)
     inference_insights = generate_inference_insights(inference_tests)
 
+    # ---------------------------------------------------------
+    # 7c. ML RECOMMENDATION (target + modelos, sin entrenar)
+    # ---------------------------------------------------------
+
+    ml_recommendation = build_ml_recommendation(
+        profile,
+        df,
+        numeric_relationships,
+        categorical_numeric_relationships,
+        categorical_categorical_relationships,
+    )
+    ml_insights = generate_ml_insights(ml_recommendation)
+
     profiles_by_name = {column.name: column for column in profile.columns}
 
     analysis_candidates = [
@@ -785,7 +801,8 @@ def analyze_dataset(
         + aggregation_insights
         + comparative_insights
         + temporal_insights
-        + inference_insights,
+        + inference_insights
+        + ml_insights,
     )
 
     return AnalysisReport(
@@ -807,6 +824,7 @@ def analyze_dataset(
         comparative_insights=comparative_insights,
         temporal_insights=temporal_insights,
         inference_insights=inference_insights,
+        ml_insights=ml_insights,
         executive_summary=executive_summary,
         scatter_plots=scatter_plots,
         bar_plots=bar_plots,
@@ -816,6 +834,7 @@ def analyze_dataset(
         temporal_series=temporal_series,
         inference_tests=inference_tests,
         cleaning_recommendations=cleaning_recommendations,
+        ml_recommendation=ml_recommendation,
         aggregations=aggregations,
         group_difference_patterns=group_difference_patterns,
         numeric_outlier_patterns=numeric_outlier_patterns,

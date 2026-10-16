@@ -40,6 +40,7 @@ _INSIGHT_LIST_FIELDS = (
     "comparative_insights",
     "temporal_insights",
     "inference_insights",
+    "ml_insights",
     "executive_summary",
 )
 
