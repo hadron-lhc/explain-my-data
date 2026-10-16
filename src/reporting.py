@@ -38,6 +38,7 @@ _INSIGHT_LIST_FIELDS = (
     "structure_insights",
     "aggregation_insights",
     "comparative_insights",
+    "temporal_insights",
     "executive_summary",
 )
 
@@ -255,6 +256,42 @@ def _scatter_chunk(scatter) -> str:
     return _chart_wrap(figure)
 
 
+def _line_chunk(line) -> str:
+    figure = go.Figure()
+
+    figure.add_trace(
+        go.Scatter(
+            x=line.periods,
+            y=line.means,
+            mode="lines+markers",
+            name=f"mean {line.column_value}",
+            line={"color": "steelblue", "width": 2},
+            marker={"size": 4},
+        )
+    )
+
+    if line.rolling_mean is not None:
+        figure.add_trace(
+            go.Scatter(
+                x=line.periods,
+                y=line.rolling_mean,
+                mode="lines",
+                name=f"rolling({line.rolling_window})",
+                line={"color": "darkorange", "width": 2, "dash": "dash"},
+            )
+        )
+
+    figure.update_layout(
+        title=f"{line.column_value} over {line.column_date}",
+        xaxis_title=line.column_date,
+        yaxis_title=line.column_value,
+        height=420,
+        margin={"t": 40, "b": 80, "l": 40, "r": 20},
+    )
+
+    return _chart_wrap(figure)
+
+
 def _bar_chunk(bar) -> str:
     figure = go.Figure(
         go.Bar(
@@ -389,6 +426,15 @@ def _figure_chunks(report: AnalysisReport) -> list[tuple[str, str, str]]:
                 chart_id_categorical_categorical(heat.column_x, heat.column_y),
                 f"heatmap:{_sorted_pair(heat.column_x, heat.column_y)}",
                 _heatmap_chunk(heat),
+            )
+        )
+
+    for line in report.line_plots:
+        chunks.append(
+            (
+                f"temporal:{line.column_date}:{line.column_value}",
+                f"line:{line.column_date}:{line.column_value}",
+                _line_chunk(line),
             )
         )
 
@@ -754,6 +800,54 @@ def render_html_report(
         for rel in report.categorical_categorical_relationships
     ]
 
+    temporal_rows = []
+
+    for series in report.temporal_series:
+        trend_text = "—"
+
+        if series.trend is not None:
+            pct = (
+                f"{series.trend.pct_change:+.1f}%"
+                if series.trend.pct_change is not None
+                else "n/a"
+            )
+            trend_text = f"{series.trend.direction} {pct}"
+
+        temporal_rows.append(
+            [
+                series.date_column,
+                series.value_column,
+                series.granularity,
+                series.n_periods,
+                series.start,
+                series.end,
+                trend_text,
+                len(series.missing_periods),
+            ]
+        )
+
+    if temporal_rows:
+        temporal_section = (
+            '<section class="page">'
+            "<h2>Temporal series</h2>"
+            + _table(
+                [
+                    "date column",
+                    "metric",
+                    "granularity",
+                    "periods",
+                    "start",
+                    "end",
+                    "trend",
+                    "missing",
+                ],
+                temporal_rows,
+            )
+            + "</section>"
+        )
+    else:
+        temporal_section = ""
+
     all_insights = (
         report.quality_insights
         + report.relationship_insights
@@ -762,6 +856,7 @@ def render_html_report(
         + report.structure_insights
         + report.aggregation_insights
         + report.comparative_insights
+        + report.temporal_insights
     )
 
     # Orden temático: los hallazgos de la misma columna quedan
@@ -885,6 +980,8 @@ def render_html_report(
 <h2 style="margin-top:24px">Relationships: categorical ↔ categorical</h2>
 {_table(["x", "y", "cramers_v", "chi2", "p-value"], cat_cat_rel_rows)}
 </section>
+
+{temporal_section}
 
 </main>
 </body>

@@ -165,3 +165,31 @@ PATTERN_PER_PAIR_CAP = 2
 # puro por score favorece familias con escalas grandes (comparativos)
 # y ahoga distribuciones/relaciones.
 EXECUTIVE_PER_CATEGORY_MAX = 3
+
+# --- Análisis temporal (F3) --------------------------------------------------
+
+# Columnas datetime analizadas por dataset y métricas por fecha.
+TEMPORAL_MAX_DATE_COLUMNS = 2
+TEMPORAL_MAX_METRICS_PER_DATE = 3
+
+# Periodos mínimos (resampleados) para emitir cualquier hallazgo.
+TEMPORAL_MIN_PERIODS = 8
+
+# Selección de pares: score máximo entre |spearman| (tendencia) y
+# autocorrelación en el lag natural (estacionalidad); por debajo del
+# piso la métrica no se empareja con la fecha.
+TEMPORAL_PAIR_MIN_SCORE = 0.4
+
+# Cambio total mínimo (%) para declarar tendencia.
+TEMPORAL_TREND_MIN_PCT = 5.0
+
+# Autocorrelación mínima (serie detrendeada) para declarar
+# estacionalidad en el lag natural (día→7, semana→52, mes→12, trimestre→4).
+TEMPORAL_SEASONAL_MIN_AUTOCORR = 0.5
+
+# Separación mínima (en desviaciones del overall) para declarar un
+# cambio de régimen.
+TEMPORAL_REGIME_MIN_SCORE = 0.8
+
+# Multiplicador de IQR para extremos sobre medias de período.
+TEMPORAL_OUTLIER_IQR_MULT = 3.0

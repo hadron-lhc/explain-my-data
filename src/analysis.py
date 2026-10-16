@@ -86,10 +86,17 @@ from src.statistics import (
     calculate_categorical_statistics,
     calculate_numeric_statistics,
 )
+from src.temporal import (
+    TemporalSeries,
+    analyze_temporal_series,
+    generate_temporal_insights,
+    select_temporal_pairs,
+)
 from src.visualizations import (
     BarPlotData,
     BoxPlotData,
     HeatmapPlotData,
+    LinePlotData,
     ScatterPlotData,
     build_bar_plot,
     build_boxplot,
@@ -122,13 +129,16 @@ class AnalysisReport:
     structure_insights: list[Insight] = field(default_factory=list)
     aggregation_insights: list[Insight] = field(default_factory=list)
     comparative_insights: list[Insight] = field(default_factory=list)
+    temporal_insights: list[Insight] = field(default_factory=list)
     executive_summary: list[Insight] = field(default_factory=list)
     scatter_plots: list[ScatterPlotData] = field(default_factory=list)
     bar_plots: list[BarPlotData] = field(default_factory=list)
     boxplots: list[BoxPlotData] = field(default_factory=list)
     heatmaps: list[HeatmapPlotData] = field(default_factory=list)
+    line_plots: list[LinePlotData] = field(default_factory=list)
 
     aggregations: list[CategoricalNumericAggregation] = field(default_factory=list)
+    temporal_series: list[TemporalSeries] = field(default_factory=list)
     group_difference_patterns: list[GroupDifferencePattern] = field(
         default_factory=list
     )
@@ -530,6 +540,46 @@ def analyze_dataset(
     )
 
     # ---------------------------------------------------------
+    # 6b. TEMPORAL (columnas datetime → series + insights)
+    # ---------------------------------------------------------
+
+    datetime_columns = [
+        column.name for column in profile.columns if column.role == "datetime"
+    ]
+    numeric_columns = [
+        column.name for column in profile.columns if column.role == "numeric"
+    ]
+
+    temporal_pairs = select_temporal_pairs(
+        df,
+        datetime_columns,
+        numeric_columns,
+    )
+
+    temporal_series: list[TemporalSeries] = []
+    temporal_insights: list[Insight] = []
+    line_plots: list[LinePlotData] = []
+
+    for date_column, value_column in temporal_pairs:
+        series = analyze_temporal_series(df, date_column, value_column)
+
+        if series is None:
+            continue
+
+        temporal_series.append(series)
+        temporal_insights.extend(generate_temporal_insights(series))
+        line_plots.append(
+            LinePlotData(
+                column_date=date_column,
+                column_value=value_column,
+                periods=series.periods,
+                means=series.means,
+                rolling_mean=series.rolling_mean,
+                rolling_window=series.rolling_window,
+            )
+        )
+
+    # ---------------------------------------------------------
     # 7. PLANNING
     # ---------------------------------------------------------
 
@@ -709,7 +759,8 @@ def analyze_dataset(
         + pattern_insights
         + structure_insights
         + aggregation_insights
-        + comparative_insights,
+        + comparative_insights
+        + temporal_insights,
     )
 
     return AnalysisReport(
@@ -729,11 +780,14 @@ def analyze_dataset(
         structure_insights=structure_insights,
         aggregation_insights=aggregation_insights,
         comparative_insights=comparative_insights,
+        temporal_insights=temporal_insights,
         executive_summary=executive_summary,
         scatter_plots=scatter_plots,
         bar_plots=bar_plots,
         boxplots=boxplots,
         heatmaps=heatmaps,
+        line_plots=line_plots,
+        temporal_series=temporal_series,
         aggregations=aggregations,
         group_difference_patterns=group_difference_patterns,
         numeric_outlier_patterns=numeric_outlier_patterns,

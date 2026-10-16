@@ -46,6 +46,18 @@ class HeatmapPlotData:
     values: list[list[float]]
 
 
+@dataclass
+class LinePlotData:
+    """Serie temporal agregada: medias de período + rolling."""
+
+    column_date: str
+    column_value: str
+    periods: list[str]
+    means: list[float]
+    rolling_mean: list[float] | None = None
+    rolling_window: int | None = None
+
+
 def build_scatter_plot(
     df: pd.DataFrame,
     column_x: str,

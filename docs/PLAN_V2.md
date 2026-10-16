@@ -35,7 +35,18 @@
   informe ordenadas por columna (agrupación temática). QA ya no
   cuenta las reimpresiones del ejecutivo. 522 → **390 insights**
   (promedio 39/dataset).
-- [ ] **F3 — Análisis temporal (V3a)**
+- [x] **F3 — Análisis temporal (V3a)** (2026-10-15): `src/temporal.py`
+  estudia cada columna datetime (detectada por el profiling) contra
+  sus mejores métricas numéricas: granularidad inferida, tendencia
+  (pendiente + % first→last, con guard de robustez ante outliers de
+  palanca), estacionalidad (autocorr en el lag natural sobre la serie
+  detrendeada), huecos de período, cambio de régimen (sobre la serie
+  detrendeada para no confundirlo con una tendencia) y extremos
+  (3×IQR de medias de período). Charts de serie (línea + rolling) y
+  sección "Temporal series" en el informe. Corpus QA: 3 datasets
+  sintéticos con fechas (monthly_sales, daily_temperature,
+  weekly_orders) + extractores verify temporales (tendencia,
+  estacionalidad, régimen, huecos, extremos).
 - [ ] **F4 — Inferencia estadística (V3b)**
 - [ ] **F5 — Calidad → limpieza recomendada (V5)**
 - [ ] **F6 — Target & recomendación ML (V4, sin entrenar)**
@@ -52,6 +63,11 @@ Línea base al cerrar F2: `✓69/69 · ⊘2 · claims 31/31 · absent✗0 ·
 ⚠0 · ℹ28` sobre **390 insights** (39/dataset, titanic 79); verify
 precisión **100% (276/276)**, **cobertura 70.8%**; `check --strict`
 exit 0; 263 tests.
+
+Línea base al cerrar F3: `✓77/77 · ⊘2 · claims 42/42 · absent✗0 ·
+⚠0 · ℹ29` sobre **403 insights** (13 datasets, 3 temporales nuevos);
+verify precisión **100% (287/287)**, **cobertura 71.2%**;
+`check --strict` exit 0; 275 tests.
 
 ---
 
