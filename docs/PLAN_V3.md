@@ -79,7 +79,35 @@ Sobre titanic (93 insights), diamonds (68), adult (78):
   Corpus: `absent:` de regresión en `titanic.md` (sibsp/parch skew,
   pclass modas) y `adult.md` (education_num modas). 12 tests nuevos
   en `tests/test_distributions.py`.
-- [ ] **P3 — Validez contextual: missingness y significancia práctica**
+- [x] **P3 — Validez contextual: missingness y significancia práctica**
+  (2026-10-16): `coverage_pct` en `CategoricalNumericRelationship`
+  (calculado antes del `dropna`, para no mentir sobre el missing).
+  Tres mecanismos en la tarjeta comparativa cat-num y en la
+  inferencia: (1) **significancia práctica** — una separación grande
+  en σ puede ser artefacto de poca varianza global; se exige además
+  dispersión relativa ≥ `MIN_RELATIVE_DIFF=15%` entre medias de
+  grupo, lo que deja fuera `pclass × sex` (sep 0.28, ~10%) y deja
+  `age × pclass` (sep 0.90, ~42%); (2) **missingness** — coverage ≥
+  `RELATIONSHIP_MAX_MISSING_PCT=30%` emite sin caveat, entre 15% y
+  30% emite con caveat de coverage y **score × 0.5** (para no
+  encabezar el ranking con un hallazgo parcial), y < 15% no emite;
+  el caveat vive en `_coverage_caveats`; (3) **tamaño de grupo** —
+  `RELATIONSHIP_MIN_GROUP_N=30` por grupo se evalúa **en el
+  generador de la tarjeta**, no en el filtro de redundancia
+  (`filter_relationships`): moverlo ahí vaciaba la inferencia en
+  datasets con grupos chicos (gapminder 142 países, mtcars 3–14,
+  planets 1–530, tips 19–87) y apagaba hallazgos legítimos.
+  Inferencia conserva sus propios umbrales
+  (`INFERENCE_MIN_GROUPS`/`INFERENCE_MIN_OBSERVATIONS`) y su caveat
+  "small sample"; el η² del test no cambia, solo se degrada el
+  score del insight. `age`/`fare`/`pclass`/`parch` across deck
+  siguen emitiéndose vía inferencia con su caveat de coverage; las
+  tarjetas comparativas de deck se suprimen por el gate de n<30.
+  Corpus: `absent:` acotados a la tarjeta comparativa
+  («…(group separation») para no atrapar por substring el insight
+  de inferencia. 8 tests nuevos en `tests/test_insights.py`, 3 en
+  `tests/test_inference.py` (degradación, skip por coverage,
+  `low_coverage`). 354 tests.
 - [ ] **P4 — Narrativa y presupuesto de insights**
 - [ ] **P5 — Tarjetas más ricas (detalle y cross-links)**
 - [x] **G1 — QA transversal: `noise:` a nivel info** (2026-10-16):
@@ -102,6 +130,16 @@ modas de pclass suprimidos); adult se mantiene en 76 pero con
 `education_num` ya sin tarjeta de modas — su skew era negativo, así
 que no era trivial y se conserva. `fare` y `capital_gain` conservan
 sus insights de skew y concentración.)
+
+Línea base tras P3 (16 datasets): `✓100/100 · ⊘2 · claims 59/59 ·
+absent✗0 · ⚠0 · ℹ29 · ✗info0` sobre **490 insights**; verify
+**100% (356/356)**, **cobertura 72.7%**; `check --strict` exit 0;
+**354 tests**, ruff limpio. títanic 58→56 (las tarjetas
+comparativas de deck caen por el gate de n<30, pero deck conserva
+sus insights de inferencia con caveat de coverage). Los 5 datasets
+que perdían su insight «statistically significant» (gapminder,
+mtcars×2, planets, tips) lo recuperan al mover el gate de tamaño
+fuera del filtro de redundancia.
 
 (Línea base tras P1: `✓100/100 · ⊘2 · claims 59/59 · absent✗0 · ⚠0 ·
 ℹ29 · ✗info0` sobre **539 insights**; verify **100% (369/369)**,

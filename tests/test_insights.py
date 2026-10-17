@@ -6,12 +6,14 @@ from src.insights import (
     generate_executive_summary,
     generate_pattern_insights,
     generate_quality_insights,
+    generate_relationship_insights,
     generate_structure_insights,
     humanize_group_value,
 )
 from src.patterns import GroupDifferencePattern, NumericOutlierPattern
 from src.profiling import ColumnProfile, DatasetProfile
 from src.quality import ColumnQuality, QualityReport
+from src.relationships import CategoricalNumericRelationship
 
 
 def make_column_quality(**overrides) -> ColumnQuality:
@@ -478,3 +480,134 @@ def test_executive_summary_returns_all_when_fewer_insights():
     summary = generate_executive_summary(insights, top_n=8)
 
     assert len(summary) == 1
+
+
+# ---------------------------------------------------------------------------
+# P3: validez contextual (coverage + significancia práctica)
+# ---------------------------------------------------------------------------
+
+
+def make_cat_num_relationship(**overrides) -> CategoricalNumericRelationship:
+    data = {
+        "column_categorical": "deck",
+        "column_numeric": "pclass",
+        "group_means": {"A": 1.0, "B": 2.0},
+        "group_medians": {"A": 1.0, "B": 2.0},
+        "group_counts": {"A": 100, "B": 100},
+        "n_observations": 200,
+        "group_separation": 3.0,
+        "n_groups": 2,
+        "group_outliers": {},
+        "coverage_pct": 100.0,
+    }
+    data.update(overrides)
+    return CategoricalNumericRelationship(**data)
+
+
+def test_cat_num_insight_skipped_below_minimum_coverage():
+    # < 15%: el "hallazgo" describe un subconjunto demasiado chico.
+    relationship = make_cat_num_relationship(coverage_pct=10.0)
+
+    assert generate_relationship_insights([], [relationship]) == []
+
+
+def test_cat_num_insight_caveats_on_partial_coverage():
+    # 15–30%: se emite pero con caveat de coverage.
+    relationship = make_cat_num_relationship(coverage_pct=22.8)
+
+    insights = generate_relationship_insights([], [relationship])
+
+    assert len(insights) == 1
+    assert any("of rows" in caveat for caveat in insights[0].caveats)
+
+
+def test_cat_num_insight_full_coverage_has_no_coverage_caveat():
+    relationship = make_cat_num_relationship(coverage_pct=100.0)
+
+    insights = generate_relationship_insights([], [relationship])
+
+    assert len(insights) == 1
+    assert not any("of rows" in caveat for caveat in insights[0].caveats)
+
+
+def test_cat_num_insight_requires_practical_significance():
+    # sep=0.28 (sobre el piso de 0.20) pero las medias solo se separan
+    # 10%: diferencia estadística sin sustancia práctica.
+    relationship = make_cat_num_relationship(
+        column_categorical="sex",
+        column_numeric="pclass",
+        group_means={"female": 1.9, "male": 2.1},
+        group_separation=0.28,
+    )
+
+    assert generate_relationship_insights([], [relationship]) == []
+
+
+def test_cat_num_insight_passes_practical_significance():
+    # sep=0.90 y medias 42% aparte: pasa el gate de práctica.
+    relationship = make_cat_num_relationship(
+        column_categorical="pclass",
+        column_numeric="age",
+        group_means={"1": 38.2, "2": 29.9, "3": 25.1},
+        group_separation=0.90,
+    )
+
+    insights = generate_relationship_insights([], [relationship])
+
+    assert len(insights) == 1
+
+
+def make_group_difference_pattern(**overrides) -> GroupDifferencePattern:
+    data = {
+        "group_column": "deck",
+        "numeric_column": "pclass",
+        "group_value": "F",
+        "group_size": 13,
+        "group_mean": 2.38,
+        "overall_mean": 1.20,
+        "difference": 1.19,
+        "standardized_difference": 3.77,
+        "group_median": 2.0,
+        "overall_median": 1.0,
+        "median_difference": 1.0,
+        "robust_standardized_difference": 3.5,
+    }
+    data.update(overrides)
+    return GroupDifferencePattern(**data)
+
+
+def test_pattern_insight_skipped_below_minimum_coverage():
+    pattern = make_group_difference_pattern()
+    outliers = []
+
+    insights = generate_pattern_insights(
+        [pattern],
+        outliers,
+        coverage_by_pair={("deck", "pclass"): 10.0},
+    )
+
+    assert insights == []
+
+
+def test_pattern_insight_caveats_on_partial_coverage():
+    pattern = make_group_difference_pattern()
+    outliers = []
+
+    insights = generate_pattern_insights(
+        [pattern],
+        outliers,
+        coverage_by_pair={("deck", "pclass"): 22.8},
+    )
+
+    assert len(insights) == 1
+    assert any("of rows" in caveat for caveat in insights[0].caveats)
+
+
+def test_pattern_insight_full_coverage_by_default():
+    # Sin cobertura calculada (compat) no se califica: se emite.
+    pattern = make_group_difference_pattern()
+    outliers = []
+
+    insights = generate_pattern_insights([pattern], outliers)
+
+    assert len(insights) == 1

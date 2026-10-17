@@ -30,6 +30,9 @@ from src.config import (
     EXECUTIVE_SUMMARY_MAX_WARNINGS,
     EXECUTIVE_SUMMARY_TOP_N,
     MIN_GROUP_SEPARATION,
+    MIN_RELATIVE_DIFF,
+    RELATIONSHIP_MAX_MISSING_PCT,
+    RELATIONSHIP_MIN_GROUP_N,
 )
 from src.distributions import NumericDistribution
 from src.patterns import GroupDifferencePattern, NumericOutlierPattern
@@ -43,6 +46,56 @@ from src.relationships import (
 
 ASSOCIATION_CAVEAT = "Association does not imply causation."
 OUTLIER_CAVEAT = "Statistical outliers are not necessarily errors."
+
+
+def _coverage_caveats(coverage_pct: float) -> list[str]:
+    """
+    Califica una relación según qué fracción del dataset cubre.
+
+    - ≥ el umbral: sin caveat (la relación describe el dataset entero).
+    - ≥ la mitad: caveat, pero se emite (missing moderado).
+    - < la mitad: no se emite (el "hallazgo" es sobre un subconjunto
+      pequeño y su fuerza es engañosa).
+    """
+    if coverage_pct >= RELATIONSHIP_MAX_MISSING_PCT:
+        return []
+
+    if coverage_pct >= RELATIONSHIP_MAX_MISSING_PCT / 2.0:
+        return [f"Based on {coverage_pct:.0f}% of rows (missing in the data)."]
+
+    return [_COVERAGE_SKIP]
+
+
+_COVERAGE_SKIP = "__skip_low_coverage__"
+
+
+def _practically_meaningful(
+    group_means: dict[str, float],
+    group_separation: float,
+) -> bool:
+    """
+    Significancia práctica (P3): una diferencia grande en desviaciones
+    estándar puede ser artefacto de poca varianza global. Exige además
+    que las medias de grupo se dispersen relativamente.
+
+    `pclass across sex` (sep 0.28, ~10% relativo) queda fuera;
+    `age across pclass` (sep 0.90, ~42% relativo) pasa.
+    """
+    if group_separation >= MIN_GROUP_SEPARATION * 2.0:
+        return True
+
+    if not group_means:
+        return False
+
+    values = list(group_means.values())
+    mean_of_means = sum(values) / len(values)
+
+    if mean_of_means == 0:
+        return group_separation >= MIN_GROUP_SEPARATION * 2.0
+
+    spread_pct = (max(values) - min(values)) / abs(mean_of_means) * 100.0
+
+    return spread_pct >= MIN_RELATIVE_DIFF * 100.0
 
 
 @dataclass
@@ -359,8 +412,42 @@ def _categorical_numeric_relationship_insight(
     if relationship.group_separation < MIN_GROUP_SEPARATION:
         return None
 
+    # Validación contextual (P3): una diferencia estadísticamente
+    # separada pero prácticamente nula no debe sonar sustancial.
+    if not _practically_meaningful(
+        relationship.group_means,
+        relationship.group_separation,
+    ):
+        return None
+
+    # Un grupo de n<30 no da base para afirmar nada sobre su media.
+    # Se evalúa acá y no en el filtro de relaciones: inferencia tiene
+    # sus propios umbrales (INFERENCE_MIN_GROUPS/OBSERVATIONS) y su
+    # caveat "small sample", y vaciarla acá apagaría hallazgos
+    # legítimos en datasets con grupos chicos.
+    if not relationship.group_counts:
+        return None
+
+    if min(relationship.group_counts.values()) < RELATIONSHIP_MIN_GROUP_N:
+        return None
+
+    coverage_caveats = _coverage_caveats(relationship.coverage_pct)
+
+    if _COVERAGE_SKIP in coverage_caveats:
+        return None
+
     top_group = max(relationship.group_means, key=relationship.group_means.get)
     bottom_group = min(relationship.group_means, key=relationship.group_means.get)
+
+    caveats = [ASSOCIATION_CAVEAT, *coverage_caveats]
+
+    score = relationship.group_separation
+
+    if coverage_caveats:
+        # La fuerza bruta sobre un subconjunto no es comparable con una
+        # relación sobre el dataset entero: se degrada para no encabezar
+        # el ranking con un hallazgo parcial.
+        score *= 0.5
 
     return Insight(
         title=(
@@ -384,13 +471,14 @@ def _categorical_numeric_relationship_insight(
             "n_groups": relationship.n_groups,
             "top_group_mean": relationship.group_means[top_group],
             "bottom_group_mean": relationship.group_means[bottom_group],
+            "coverage_pct": round(relationship.coverage_pct, 2),
         },
         chart_id=chart_id_categorical_numeric(
             relationship.column_categorical,
             relationship.column_numeric,
         ),
-        score=relationship.group_separation,
-        caveats=[ASSOCIATION_CAVEAT],
+        score=score,
+        caveats=caveats,
     )
 
 
@@ -616,6 +704,7 @@ def generate_distribution_insights(
 
 def _group_difference_insight(
     pattern: GroupDifferencePattern,
+    coverage_pct: float | None = None,
 ) -> Insight | None:
     strength = max(
         abs(pattern.standardized_difference),
@@ -624,6 +713,17 @@ def _group_difference_insight(
 
     if strength < 1.0:
         return None
+
+    # Validación contextual (P3): una relación sobre un subconjunto
+    # pequeño no debe emitirse con la misma fuerza que una sobre el
+    # dataset entero. Sin cobertura calculada no se califica (compat).
+    if coverage_pct is not None:
+        coverage_caveats = _coverage_caveats(coverage_pct)
+
+        if _COVERAGE_SKIP in coverage_caveats:
+            return None
+    else:
+        coverage_caveats = []
 
     relative_pct = (
         abs(pattern.difference) / abs(pattern.overall_mean) * 100
@@ -636,6 +736,23 @@ def _group_difference_insight(
         if relative_pct is not None
         else ""
     )
+
+    score = strength
+
+    if coverage_caveats:
+        score *= 0.5
+
+    evidence: dict[str, float | int | str] = {
+        "group_mean": pattern.group_mean,
+        "overall_mean": pattern.overall_mean,
+        "difference": pattern.difference,
+        "standardized_difference": pattern.standardized_difference,
+        "robust_standardized_difference": pattern.robust_standardized_difference,
+        "group_size": pattern.group_size,
+    }
+
+    if coverage_pct is not None:
+        evidence["coverage_pct"] = round(coverage_pct, 2)
 
     return Insight(
         title=(
@@ -653,20 +770,13 @@ def _group_difference_insight(
         severity="info",
         category="pattern",
         columns=[pattern.group_column, pattern.numeric_column],
-        evidence={
-            "group_mean": pattern.group_mean,
-            "overall_mean": pattern.overall_mean,
-            "difference": pattern.difference,
-            "standardized_difference": pattern.standardized_difference,
-            "robust_standardized_difference": pattern.robust_standardized_difference,
-            "group_size": pattern.group_size,
-        },
+        evidence=evidence,
         chart_id=chart_id_categorical_numeric(
             pattern.group_column,
             pattern.numeric_column,
         ),
-        score=strength,
-        caveats=[ASSOCIATION_CAVEAT],
+        score=score,
+        caveats=[ASSOCIATION_CAVEAT, *coverage_caveats],
     )
 
 
@@ -710,15 +820,23 @@ def generate_pattern_insights(
     group_difference_patterns: list[GroupDifferencePattern],
     numeric_outlier_patterns: list[NumericOutlierPattern],
     *,
+    coverage_by_pair: dict[tuple[str, str], float] | None = None,
     max_group_insights: int = 10,
     max_outlier_insights: int = 10,
 ) -> list[Insight]:
     insights: list[Insight] = []
+    coverage_by_pair = coverage_by_pair or {}
 
     group_insights = [
         insight
         for pattern in group_difference_patterns
-        if (insight := _group_difference_insight(pattern)) is not None
+        if (
+            insight := _group_difference_insight(
+                pattern,
+                coverage_by_pair.get((pattern.group_column, pattern.numeric_column)),
+            )
+        )
+        is not None
     ]
 
     group_insights.sort(key=lambda insight: insight.score, reverse=True)

@@ -32,6 +32,7 @@ from src.config import (
     INFERENCE_MIN_GROUPS,
     INFERENCE_MIN_OBSERVATIONS,
     INFERENCE_SMALL_SAMPLE,
+    RELATIONSHIP_MAX_MISSING_PCT,
 )
 from src.insights import Insight
 from src.relationships import CategoricalNumericRelationship
@@ -69,6 +70,8 @@ class CategoricalNumericInference:
     levene_p: float | None = None
     shapiro_p: float | None = None
 
+    coverage_pct: float = 100.0
+
     @property
     def significant(self) -> bool:
         threshold = (
@@ -77,6 +80,10 @@ class CategoricalNumericInference:
             else self.p_value
         )
         return threshold < INFERENCE_ALPHA
+
+    @property
+    def low_coverage(self) -> bool:
+        return self.coverage_pct < RELATIONSHIP_MAX_MISSING_PCT
 
     @property
     def small_sample(self) -> bool:
@@ -303,6 +310,7 @@ def infer_categorical_numeric(
         rest_mean=rest_mean,
         levene_p=levene_p,
         shapiro_p=shapiro_p,
+        coverage_pct=relationship.coverage_pct,
     )
 
 
@@ -319,7 +327,9 @@ def run_inference(
         relationships,
         key=lambda rel: rel.group_separation,
         reverse=True,
-    )[:INFERENCE_MAX_TESTS]
+    )
+
+    ranked = ranked[:INFERENCE_MAX_TESTS]
 
     results: list[CategoricalNumericInference] = []
 
@@ -432,6 +442,7 @@ def generate_inference_insights(
             "top_group": inference.top_group,
             "n_observations": inference.n_observations,
             "n_groups": inference.n_groups,
+            "coverage_pct": round(inference.coverage_pct, 2),
         }
 
         if inference.p_value_bh is not None:
@@ -439,6 +450,15 @@ def generate_inference_insights(
 
         if inference.cohen_d is not None:
             evidence["cohen_d"] = round(inference.cohen_d, 4)
+
+        if inference.low_coverage:
+            # Un hallazgo sobre un subconjunto del dataset no debe
+            # encabezar el ranking con la misma fuerza que uno sobre
+            # el dataset entero.
+            caveats.append(
+                f"Based on {inference.coverage_pct:.0f}% of rows."
+            )
+            score *= 0.5
 
         insights.append(
             Insight(

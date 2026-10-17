@@ -93,6 +93,24 @@ COUNT_SKIP_TOP_PCT = 80.0
 # histograma, no subpoblaciones mezcladas.
 DISCRETE_SKIP_MODES_MAX = 5
 
+# --- Validación contextual (P3) ---------------------------------------------
+
+# Máximo de % de missing en una columna para que sus relaciones se
+# emitan con normalidad. Por encima, la tarjeta se califica con un
+# caveat dominante; por debajo del doble, se emite en una sección de
+# baja confianza; por encima del doble, no se emite.
+RELATIONSHIP_MAX_MISSING_PCT = 30.0
+
+# Tamaño mínimo por grupo tras dropna para que un grupo sostenga una
+# afirmación comparativa.
+RELATIONSHIP_MIN_GROUP_N = 30
+
+# Dispersión relativa mínima entre medias de grupo para que una
+# diferencia sea práctica (no solo estadística). Si la dispersión es
+# menor, la separación en desviaciones estándar puede ser artefacto
+# de poca varianza global.
+MIN_RELATIVE_DIFF = 0.15
+
 # --- Visualizaciones --------------------------------------------------------
 
 # Scatters sin muestreo para muestras pequeñas.

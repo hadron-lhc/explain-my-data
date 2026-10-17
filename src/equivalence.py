@@ -738,7 +738,10 @@ def filter_relationships(
     relationships: list[CategoricalNumericRelationship],
     equivalence_map: EquivalenceMap,
 ) -> list[CategoricalNumericRelationship]:
-    """Descarta relaciones donde alguna columna es redundante."""
+    """
+    Descarta relaciones donde alguna columna es redundante
+    (duplicada o derivada).
+    """
     if not equivalence_map.relations and not equivalence_map.derived:
         return list(relationships)
 

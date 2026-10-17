@@ -599,6 +599,16 @@ def analyze_dataset(
         if column.role == "numeric" and column.name in prepared_columns
     ]
 
+    # Validación contextual (P3): el coverage por par cat-num (una
+    # relación con coverage bajo no es un hallazgo sobre el dataset
+    # entero) se calcula una vez y se comparte con los patrones.
+    coverage_by_pair = {
+        (relationship.column_categorical, relationship.column_numeric): (
+            relationship.coverage_pct
+        )
+        for relationship in categorical_numeric_relationships
+    }
+
     numeric_outlier_patterns = detect_numeric_outliers(
         df,
         numeric_columns_for_patterns,
@@ -607,6 +617,7 @@ def analyze_dataset(
     pattern_insights = generate_pattern_insights(
         group_difference_patterns,
         numeric_outlier_patterns,
+        coverage_by_pair=coverage_by_pair,
     )
 
     structure_insights = generate_structure_insights(profile)

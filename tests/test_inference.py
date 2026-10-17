@@ -43,6 +43,16 @@ def _relationship(categorical: str, numeric: str) -> CategoricalNumericRelations
     )
 
 
+def _low_coverage_relationship(
+    categorical: str,
+    numeric: str,
+    coverage_pct: float = 22.8,
+) -> CategoricalNumericRelationship:
+    relationship = _relationship(categorical, numeric)
+    relationship.coverage_pct = coverage_pct
+    return relationship
+
+
 class TestBenjaminiHochberg:
     def test_empty(self):
         assert benjamini_hochberg([]) == []
@@ -144,6 +154,19 @@ class TestRunInference:
 
         assert len(inference_list) <= 10
 
+    def test_low_coverage_is_degraded_not_suppressed(self):
+        # Un coverage bajo no suprime la inferencia: la califica. La
+        # supresión vive en el filtro de relaciones (grupos < n), no
+        # aquí, para que el score y el caveat lleguen al usuario.
+        df = _strong_effect_frame()
+        relationships = [_relationship("region", "sales")]
+        relationships[0].coverage_pct = 10.0
+
+        results = run_inference(df, relationships)
+
+        assert len(results) == 1
+        assert results[0].low_coverage
+
 
 class TestGenerateInferenceInsights:
     def test_significant_generates_insight(self):
@@ -192,3 +215,20 @@ class TestGenerateInferenceInsights:
         if inference.significant:
             insights = generate_inference_insights([inference])
             assert any("small sample" in c for c in insights[0].caveats)
+
+    def test_low_coverage_degrades_and_caveats(self):
+        df = _strong_effect_frame()
+        full = _strong_effect_frame()
+
+        inference = infer_categorical_numeric(df, _low_coverage_relationship("region", "sales"))
+        assert inference is not None
+        assert inference.low_coverage
+
+        full_inference = infer_categorical_numeric(full, _relationship("region", "sales"))
+
+        if inference.significant and full_inference.significant:
+            insights = generate_inference_insights([inference])
+            full_insights = generate_inference_insights([full_inference])
+
+            assert any("of rows" in c for c in insights[0].caveats)
+            assert insights[0].score < full_insights[0].score

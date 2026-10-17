@@ -66,6 +66,12 @@ class CategoricalNumericRelationship:
 
     group_outliers: dict[str, int]
 
+    # % de las filas donde ambas columnas tienen valor, respecto al
+    # total original (antes del dropna). Es el ancla de missingness
+    # (P3): una relación con coverage bajo suena fuerte pero solo
+    # describe un subconjunto del dataset.
+    coverage_pct: float = 100.0
+
 
 @dataclass
 class CategoricalCategoricalRelationship:
@@ -148,15 +154,20 @@ def calculate_categorical_numeric_relationship(
     Retorna None si no existen suficientes observaciones.
     """
 
-    data = pd.DataFrame(
+    frame = pd.DataFrame(
         {
             "numeric": pd.to_numeric(numeric_series, errors="coerce"),
             "categorical": categorical_series,
         }
-    ).dropna()
+    )
+
+    n_total = len(frame)
+    data = frame.dropna()
 
     if len(data) < 2:
         return None
+
+    coverage_pct = (len(data) / n_total * 100.0) if n_total > 0 else 0.0
 
     grouped = data.groupby("categorical")["numeric"]
 
@@ -204,6 +215,7 @@ def calculate_categorical_numeric_relationship(
         group_separation=group_separation,
         n_groups=n_groups,
         group_outliers=group_outliers,
+        coverage_pct=coverage_pct,
     )
 
 

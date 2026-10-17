@@ -5,14 +5,15 @@ from src.analysis import analyze_dataset
 
 
 def _mixed_dataset() -> pd.DataFrame:
+    n = 60
     return pd.DataFrame(
         {
-            "customer_id": range(1001, 1041),
-            "country": ["AR", "CL", "AR", "CL"] * 10,
-            "active": ["yes", "no"] * 20,
-            "revenue": [float(i % 7) * 10 + 50 for i in range(40)],
-            "units": [1 + (i % 3) for i in range(40)],
-            "comment": [f"customer note {i} with some free text" for i in range(40)],
+            "customer_id": range(1001, 1001 + n),
+            "country": ["AR", "CL"] * (n // 2),
+            "active": ["yes", "no"] * (n // 2),
+            "revenue": [float(i % 7) * 10 + 50 for i in range(n)],
+            "units": [1 + (i % 3) for i in range(n)],
+            "comment": [f"customer note {i} with some free text" for i in range(n)],
         }
     )
 
@@ -81,7 +82,7 @@ def test_full_pipeline_on_mixed_dataset():
     assert isinstance(report.quality_insights, list)
     assert report.analysis_candidates
 
-    assert report.profile.n_rows == 40
+    assert report.profile.n_rows == 60
     assert report.profile.n_columns == 6
 
 
@@ -97,8 +98,8 @@ def test_analyze_dataset_does_not_modify_original_dataframe():
 def test_boolean_columns_are_analyzed_as_categorical():
     df = pd.DataFrame(
         {
-            "active": ["yes", "no"] * 20,
-            "revenue": [float(i) for i in range(40)],
+            "active": ["yes", "no"] * 30,
+            "revenue": [float(i) for i in range(60)],
         }
     )
 
