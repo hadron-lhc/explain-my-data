@@ -70,10 +70,12 @@ def test_render_html_report_handles_minimal_dataset():
 
 
 def test_render_html_report_includes_heatmap():
+    # size/color fuertemente asociadas pero no biyectivas: una
+    # relacion 1:1 se pliegaria como equivalencia y no habria heatmap.
     df = pd.DataFrame(
         {
-            "size": ["S", "L"] * 50,
-            "color": ["red", "blue"] * 50,
+            "size": ["S"] * 50 + ["M"] * 50,
+            "color": ["red"] * 48 + ["blue"] * 2 + ["blue"] * 48 + ["red"] * 2,
         }
     )
 

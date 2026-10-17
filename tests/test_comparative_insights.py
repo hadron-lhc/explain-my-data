@@ -470,11 +470,17 @@ def test_generate_comparative_insights_combines_families():
 
 
 def test_full_report_includes_comparative_insights():
+    # spend/refunds varian dentro de cada category: no son codificados
+    # biyectivos, asi que no se pliegan como redundantes.
     df = pd.DataFrame(
         {
             "category": ["a"] * 80 + ["b"] * 80 + ["c"] * 80,
-            "spend": [10.0] * 80 + [500.0] * 80 + [12.0] * 80,
-            "refunds": [1.0] * 80 + [40.0] * 80 + [2.0] * 80,
+            "spend": [10.0, 12.0, 9.0, 11.0, 13.0, 10.0, 12.0, 9.0, 11.0, 10.0] * 8
+            + [500.0, 520.0, 490.0, 510.0, 530.0, 500.0, 520.0, 490.0, 510.0, 500.0] * 8
+            + [12.0, 14.0, 11.0, 13.0, 15.0, 12.0, 14.0, 11.0, 13.0, 12.0] * 8,
+            "refunds": [1.0, 2.0, 1.5, 2.5, 1.0, 2.0, 1.5, 3.0, 1.0, 2.0] * 8
+            + [40.0, 42.0, 38.0, 41.0, 43.0, 40.0, 42.0, 38.0, 41.0, 40.0] * 8
+            + [2.0, 3.0, 1.5, 2.5, 3.5, 2.0, 3.0, 1.5, 2.5, 2.0] * 8,
         }
     )
 

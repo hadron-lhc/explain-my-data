@@ -290,7 +290,9 @@ class TestIntegration:
         df = pd.read_csv("../explain-my-data-qa/datasets/titanic.csv")
         report = _analyze(df)
         rec = report.ml_recommendation
-        assert rec.target == "survived"
+        # survived/alive son equivalentes (P1): el fold puede elegir
+        # cualquiera de las dos como target.
+        assert rec.target in {"survived", "alive"}
         assert rec.task_type == "binary"
         assert len(report.ml_insights) >= 2
 

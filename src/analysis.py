@@ -37,6 +37,13 @@ from src.distributions import (
     NumericDistribution,
     calculate_numeric_distributions,
 )
+from src.equivalence import (
+    detect_equivalences,
+    equivalence_card,
+    filter_categorical_numeric_pairs,
+    filter_insights,
+    filter_relationships,
+)
 from src.inference import (
     CategoricalNumericInference,
     generate_inference_insights,
@@ -499,6 +506,54 @@ def analyze_dataset(
                 categorical_categorical_relationships.append(relationship)
 
     # ---------------------------------------------------------
+    # 5b. EQUIVALENCIA (P1): detecta redundancia y deriva
+    # ---------------------------------------------------------
+
+    profiles_by_name = {column.name: column for column in profile.columns}
+    roles_by_name = {column.name: column.role for column in profile.columns}
+
+    equivalence_map = detect_equivalences(
+        profiles=roles_by_name,
+        prepared_columns=prepared_columns,
+        cat_cat=categorical_categorical_relationships,
+        cat_num=categorical_numeric_relationships,
+    )
+
+    # Preferencia fuente > derivada: no analizar columnas redundantes.
+    numeric_columns = [
+        name
+        for name in numeric_columns
+        if name not in equivalence_map.duplicate_columns
+    ]
+    categorical_columns = [
+        name
+        for name in categorical_columns
+        if name not in equivalence_map.duplicate_columns
+    ]
+    numeric_relationships = [
+        relationship
+        for relationship in numeric_relationships
+        if relationship.column_x not in equivalence_map.duplicate_columns
+        and relationship.column_y not in equivalence_map.duplicate_columns
+    ]
+    categorical_numeric_relationships = filter_relationships(
+        categorical_numeric_relationships,
+        equivalence_map,
+    )
+    categorical_categorical_relationships = [
+        relationship
+        for relationship in categorical_categorical_relationships
+        if relationship.column_x not in equivalence_map.duplicate_columns
+        and relationship.column_y not in equivalence_map.duplicate_columns
+    ]
+    # Evita tarjetas de dominancia de columnas plegadas.
+    categorical_statistics = [
+        statistics
+        for statistics in categorical_statistics
+        if statistics.column_name not in equivalence_map.duplicate_columns
+    ]
+
+    # ---------------------------------------------------------
     # 6. AGGREGATIONS AND PATTERNS
     # ---------------------------------------------------------
 
@@ -506,11 +561,24 @@ def analyze_dataset(
         df,
         profile.columns,
     )
+    # Pliegue de redundancia: sin esto, los agregados y sus insights
+    # comparativos resucitarían columnas derivadas (p.ej. class, who).
+    aggregations = [
+        aggregation
+        for aggregation in aggregations
+        if aggregation.column_categorical
+        not in equivalence_map.duplicate_columns
+        and aggregation.column_numeric
+        not in equivalence_map.duplicate_columns
+    ]
 
     # Reutilizamos los pares seleccionados para mantener coherencia
     # entre las agregaciones y la detección de diferencias entre grupos.
-    categorical_numeric_pairs = select_categorical_numeric_pairs(
-        profile.columns,
+    categorical_numeric_pairs = filter_categorical_numeric_pairs(
+        select_categorical_numeric_pairs(
+            profile.columns,
+        ),
+        equivalence_map,
     )
 
     group_difference_patterns: list[GroupDifferencePattern] = []
@@ -632,12 +700,46 @@ def analyze_dataset(
         pattern_insights,
     )
 
+    # Plegado de redundancia: descarta las tarjetas que repiten la
+    # misma información por columnas equivalentes/derivadas y emite
+    # UNA tarjeta de equivalencia (src/equivalence.py).
+    equivalence_insight = equivalence_card(equivalence_map.relations)
+
+    if equivalence_insight is not None:
+        structure_insights.append(equivalence_insight)
+
+    for insight_column in equivalence_map.derived:
+        structure_insights.append(
+            Insight(
+                title=f"{insight_column.column} looks derived from other columns",
+                message=(
+                    f"{insight_column.column} appears to be derived from "
+                    f"{', '.join(insight_column.derived_from)} "
+                    f"({insight_column.evidence})."
+                ),
+                severity="info",
+                category="structure",
+                columns=[insight_column.column, *insight_column.derived_from],
+                evidence={},
+            )
+        )
+
+    relationship_insights = filter_insights(relationship_insights, equivalence_map)
+    pattern_insights = filter_insights(pattern_insights, equivalence_map)
+    aggregation_insights = filter_insights(aggregation_insights, equivalence_map)
+    comparative_insights = filter_insights(comparative_insights, equivalence_map)
+    distribution_insights = filter_insights(distribution_insights, equivalence_map)
+    temporal_insights = filter_insights(temporal_insights, equivalence_map)
+
     # ---------------------------------------------------------
     # 7b. INFERENCIA (significancia + tamaño de efecto, cat-num)
     # ---------------------------------------------------------
 
     inference_tests = run_inference(df, categorical_numeric_relationships)
-    inference_insights = generate_inference_insights(inference_tests)
+    inference_insights = filter_insights(
+        generate_inference_insights(inference_tests),
+        equivalence_map,
+    )
 
     # ---------------------------------------------------------
     # 7c. ML RECOMMENDATION (target + modelos, sin entrenar)
@@ -650,9 +752,10 @@ def analyze_dataset(
         categorical_numeric_relationships,
         categorical_categorical_relationships,
     )
-    ml_insights = generate_ml_insights(ml_recommendation)
-
-    profiles_by_name = {column.name: column for column in profile.columns}
+    ml_insights = filter_insights(
+        generate_ml_insights(ml_recommendation),
+        equivalence_map,
+    )
 
     analysis_candidates = [
         plan_numeric_numeric_analysis(

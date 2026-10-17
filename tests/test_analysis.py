@@ -18,10 +18,13 @@ def _mixed_dataset() -> pd.DataFrame:
 
 
 def test_analysis_report_includes_aggregations_and_group_differences():
+    # revenue varia dentro de cada country: no es un codificado
+    # biyectivo de country, asi que no se pliega.
     df = pd.DataFrame(
         {
             "country": ["A"] * 10 + ["B"] * 10,
-            "revenue": [10.0] * 10 + [100.0] * 10,
+            "revenue": [10.0, 12.0, 9.0, 14.0, 11.0, 10.0, 13.0, 9.0, 12.0, 11.0]
+            + [100.0, 104.0, 97.0, 108.0, 101.0, 100.0, 106.0, 97.0, 104.0, 101.0],
         }
     )
 
@@ -113,11 +116,12 @@ def test_boolean_columns_are_analyzed_as_categorical():
 
 
 def test_full_pipeline_detects_categorical_categorical_association():
-    # size y color perfectamente asociadas
+    # size y color fuertemente asociadas pero NO biyectivas (hay ruido):
+    # una relacion 1:1 se pliegaria como equivalencia redundante.
     df = pd.DataFrame(
         {
-            "size": ["S", "L"] * 50,
-            "color": ["red", "blue"] * 50,
+            "size": ["S"] * 50 + ["M"] * 50,
+            "color": ["red"] * 49 + ["blue"] * 1 + ["blue"] * 49 + ["red"] * 1,
             "revenue": [float(i) for i in range(100)],
         }
     )
@@ -179,10 +183,11 @@ def test_analyze_dataset_handles_dataset_without_numeric_columns():
 
 
 def test_analyze_dataset_handles_dataset_without_categorical_columns():
+    # y no es lineal con x: una copia lineal se pliega como redundante.
     df = pd.DataFrame(
         {
             "x": [float(i) for i in range(20)],
-            "y": [float(i) * 2 for i in range(20)],
+            "y": [float(i * i) for i in range(20)],
         }
     )
 

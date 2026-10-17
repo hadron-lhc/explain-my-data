@@ -56,6 +56,20 @@ RELATIONSHIP_PER_COLUMN_TOP = 1
 # mientras superen MIN_GROUP_SEPARATION.
 GROUP_SEPARATION_PER_COLUMN_TOP = 3
 
+# --- Equivalencia y columnas derivadas (P1) ----------------------------------
+
+# Cramér's V a partir del cual dos columnas categóricas se consideran
+# la misma información (renombre puro, p.ej. embarked/embark_town).
+EQUIVALENCE_MIN_CRAMERS_V = 0.98
+
+# Pearson absoluto a partir del cual dos numéricas se consideran la
+# misma información (variables geométricamente proporcionales).
+EQUIVALENCE_MIN_CORR = 0.995
+
+# Cardinalidad máxima de una categórica para considerarla derivada
+# (una columna sintética no supera este número de valores).
+DERIVED_MAX_CARDINALITY = 10
+
 # --- Visualizaciones --------------------------------------------------------
 
 # Scatters sin muestreo para muestras pequeñas.

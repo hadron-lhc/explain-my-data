@@ -48,7 +48,23 @@ Sobre titanic (93 insights), diamonds (68), adult (78):
 
 ## Estado
 
-- [ ] **P1 — Redundancia: equivalencias y derivadas**
+- [x] **P1 — Redundancia: equivalencias y derivadas** (2026-10-16):
+  módulo `src/equivalence.py`. Detección de equivalencia exacta
+  (cat↔cat V≥0.98, num↔num |r|≥0.995 **y biyectivo**, cat↔num con la
+  numérica como fuente) y de columnas derivadas (test direccional
+  `_is_step_function` dentro de cada grupo del socio; umbral
+  `DERIVED_MIN_GROUP_ROWS=40`; descarta derivación mutua ambigua).
+  Fold de insights en **todos** los generadores
+  (`filter_insights`: relationship, pattern, aggregation,
+  comparative, distribution, temporal, inference, ml) + filtrado de
+  pares/relaciones/agregados. Una sola tarjeta de equivalencia por
+  fold. Preferencia fuente: menos missing (ahora visible: `_prepare`
+  conserva nulos), cardinalidad natural, empate alfabético. Chi2 sin
+  corrección de Yates en el V de detección. Corpus QA adaptado
+  (`titanic.md`, `adult.md`) + dataset sintético `dup_columns.csv`
+  con `known/dup_columns.md` (regresa: copia numérica, etiqueta
+  cat, y no-pliegue de casi-lineal no biyectivo). 21 tests en
+  `tests/test_equivalence.py`.
 - [ ] **P2 — Trivialidades: conteos y discretos**
 - [ ] **P3 — Validez contextual: missingness y significancia práctica**
 - [ ] **P4 — Narrativa y presupuesto de insights**
@@ -64,6 +80,12 @@ Sobre titanic (93 insights), diamonds (68), adult (78):
   ⊘2 · claims 56/56 · absent✗0 · ⚠0 · ℹ29 · ✗info0` sobre **550
   insights** / 15 datasets; verify **100% (375/375)**, **cobertura
   68.2%**; `check --strict` exit 0; 318 tests.
+
+Línea base tras P1 (16 datasets con `dup_columns`): `✓100/100 · ⊘2 ·
+claims 59/59 · absent✗0 · ⚠0 · ℹ29 · ✗info0` sobre **539 insights**;
+verify **100% (369/369)**, **cobertura 68.5%**; `check --strict` exit
+0; **335 tests**, ruff limpio. títanic 93→63, adult 78→61
+(tautologías/ecos plegados; ~40% menos en el corpus tautológico).
 
 (Línea base al entrar en P1 = línea base al cerrar F6: `✓94/94 · ⊘2 ·
 claims 56/56 · absent✗0 · ⚠0 · ℹ29` sobre **550 insights** / 15
