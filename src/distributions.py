@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
+from src.config import COUNT_MAX_UNIQUE
 from src.utils_stats import finite_numeric
 
 MAX_BINS = 50
@@ -42,6 +43,22 @@ class NumericDistribution:
     # Porcentaje del total concentrado en el 5% superior.
     # Solo se calcula para valores no negativos con total positivo.
     top_5pct_share: float | None = None
+
+    # Cardinalidad de los valores observados. Se captura en el cálculo
+    # para que los generadores de insights puedan clasificar la columna
+    # (conteo / discreto de baja cardinalidad / continua) sin volver
+    # al DataFrame crudo.
+    n_unique: int = 0
+
+    # La columna parece una variable de conteo: entera, no negativa y
+    # con cardinalidad acotada. Solo se emite si el total de
+    # observaciones supera el mínimo del histograma.
+    looks_like_count: bool = False
+
+    @property
+    def is_low_cardinality_discrete(self) -> bool:
+        """Numérica discreta con pocos valores posibles (p.ej. pclass)."""
+        return self.n_unique <= COUNT_MAX_UNIQUE and self.n_unique > 0
 
 
 def _n_bins_freedman_diaconis(values: pd.Series) -> int:
@@ -131,6 +148,19 @@ def calculate_numeric_distribution(
         top_n = max(int(np.ceil(0.05 * n)), 1)
         top_5pct_share = round(float(values.nlargest(top_n).sum() / total * 100), 2)
 
+    n_unique = int(values.nunique())
+
+    # Conteo: entera, no negativa y de cardinalidad acotada. Un valor
+    # negativo o fraccionario descarta la interpretación de conteo; una
+    # cardinalidad alta descarta la acotación (una continua con valores
+    # enteros por azar no es un conteo).
+    looks_like_count = bool(
+        n_unique > 0
+        and n_unique <= COUNT_MAX_UNIQUE
+        and bool((values >= 0).all())
+        and bool((values == values.round()).all())
+    )
+
     return NumericDistribution(
         column_name=column_name,
         n_observations=n,
@@ -141,6 +171,8 @@ def calculate_numeric_distribution(
         modality=modality,
         n_modes=n_modes,
         top_5pct_share=top_5pct_share,
+        n_unique=n_unique,
+        looks_like_count=looks_like_count,
     )
 
 

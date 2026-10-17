@@ -148,3 +148,118 @@ def test_modality_insight_only_for_multimodal(modality):
     insights = generate_distribution_insights([dist])
 
     assert not any("subpopulations" in insight.title for insight in insights)
+
+
+# ---------------------------------------------------------------------------
+# P2 — Trivialidades: conteos y discretos de baja cardinalidad
+# ---------------------------------------------------------------------------
+
+
+def test_flags_count_columns():
+    # sibsp-style: entera, no negativa, cardinalidad acotada.
+    values = [0.0, 1.0, 1.0, 2.0, 1.0, 3.0] * 40
+    dist = calculate_numeric_distribution(pd.Series(values), "sibsp")
+
+    assert dist is not None
+    assert dist.looks_like_count
+    assert dist.is_low_cardinality_discrete
+
+
+def test_does_not_flag_fractional_or_negative_as_count():
+    fractional = calculate_numeric_distribution(
+        pd.Series([1.5, 2.5, 3.5] * 20), "fare"
+    )
+    assert fractional is not None
+    assert not fractional.looks_like_count
+
+    negative = calculate_numeric_distribution(
+        pd.Series([-1.0, 0.0, 1.0] * 20), "delta"
+    )
+    assert negative is not None
+    assert not negative.looks_like_count
+
+
+def test_does_not_flag_high_cardinality_integer_as_count():
+    # Una continua que resulta entera por azar (fnlwgt, 28k valores)
+    # no es un conteo.
+    values = [float(i) for i in range(2000, 2400)]
+    dist = calculate_numeric_distribution(pd.Series(values), "fnlwgt")
+
+    assert dist is not None
+    assert not dist.looks_like_count
+
+
+def test_count_skew_insight_suppressed():
+    # Conteo sesgado a la derecha (skew ~1.5 < COUNT_SKIP_SKEW): trivial.
+    values = [0.0] * 80 + [1.0] * 12 + [2.0] * 5 + [3.0] * 2 + [4.0] * 1
+    dist = calculate_numeric_distribution(pd.Series(values), "sibsp")
+    insights = generate_distribution_insights([dist])
+
+    assert not any("skew" in insight.title.lower() for insight in insights)
+
+
+def test_count_extreme_skew_still_reported():
+    # Mismo conteo pero con una cola larguísima: ya no es la forma
+    # esperada del conteo, así que se emite.
+    values = [0.0] * 95 + [1.0] * 3 + [2000.0] * 2
+    dist = calculate_numeric_distribution(pd.Series(values), "visitors")
+    insights = generate_distribution_insights([dist])
+
+    assert any("skew" in insight.title.lower() for insight in insights)
+
+
+def test_count_concentration_suppressed_below_threshold():
+    # Conteo con ~90% de observaciones en cero: el 5% superior se lo
+    # lleva casi todo el total, pero por debajo del umbral de señal
+    # (COUNT_SKIP_TOP_PCT) sigue siendo trivial para un conteo.
+    values = [0.0] * 180 + [1.0] * 10 + [2.0] * 6 + [3.0] * 4
+    dist = calculate_numeric_distribution(pd.Series(values), "sibsp")
+    insights = generate_distribution_insights([dist])
+
+    assert dist.top_5pct_share is not None
+    assert dist.top_5pct_share < 80.0
+    assert not any("dominate" in insight.title for insight in insights)
+
+
+def test_count_extreme_concentration_still_reported():
+    # Conteo con ~90% del total en el 5% superior: señal real.
+    values = [0.0] * 195 + [1000.0] * 5
+    dist = calculate_numeric_distribution(pd.Series(values), "revenue")
+    insights = generate_distribution_insights([dist])
+
+    assert dist.top_5pct_share is not None
+    assert dist.top_5pct_share >= 80.0
+    assert any("dominate" in insight.title for insight in insights)
+
+
+def test_low_cardinality_discrete_modality_suppressed():
+    # pclass: 3 valores posibles, el histograma marca 3 modas. Es
+    # ruido, no subpoblaciones mezcladas.
+    values = [1.0] * 216 + [2.0] * 184 + [3.0] * 491
+    dist = calculate_numeric_distribution(pd.Series(values), "pclass")
+
+    assert dist is not None
+    assert dist.n_unique == 3
+    assert dist.is_low_cardinality_discrete
+
+    insights = generate_distribution_insights([dist])
+
+    assert not any("subpopulations" in insight.title for insight in insights)
+
+
+def test_continuous_modality_still_reported():
+    # age: 88 valores, no discreta de baja cardinalidad → se emite.
+    rng = np.random.default_rng(9)
+    cluster_a = rng.normal(0, 1, 250)
+    cluster_b = rng.normal(20, 1, 250)
+    dist = calculate_numeric_distribution(
+        pd.Series(np.concatenate([cluster_a, cluster_b])),
+        "age",
+    )
+
+    assert dist is not None
+    assert not dist.is_low_cardinality_discrete
+
+    insights = generate_distribution_insights([dist])
+
+    assert any("subpopulations" in insight.title for insight in insights)

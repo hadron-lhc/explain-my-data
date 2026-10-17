@@ -70,6 +70,29 @@ EQUIVALENCE_MIN_CORR = 0.995
 # (una columna sintética no supera este número de valores).
 DERIVED_MAX_CARDINALITY = 10
 
+# --- Trivialidades de distribución (P2) --------------------------------------
+
+# Máximo de valores únicos de una numérica discreta para considerarla
+# conteo. Por encima (p.ej. fare, 248 valores) es continua y sus
+# insights de forma siguen siendo informativos.
+COUNT_MAX_UNIQUE = 30
+
+# Skew absoluto mínimo para que una variable de conteo emita su
+# asimetría. Un conteo con |skew| por debajo casi nunca es informativo
+# (la asimetría positiva es la forma esperada de un conteo); por
+# encima es tan extremo que cuenta algo (p.ej. una cola larga real).
+COUNT_SKIP_SKEW = 5.0
+
+# Cuota del 5% superior mínima para que una variable de conteo emita
+# su concentración. Un conteo siempre concentra algo en la cola
+# superior; solo interesa si lo hace de forma desproporcionada.
+COUNT_SKIP_TOP_PCT = 80.0
+
+# Máximo de valores únicos de una numérica discreta para suprimir el
+# insight de modalidad. En 3 valores posibles, 3 modas es ruido de
+# histograma, no subpoblaciones mezcladas.
+DISCRETE_SKIP_MODES_MAX = 5
+
 # --- Visualizaciones --------------------------------------------------------
 
 # Scatters sin muestreo para muestras pequeñas.

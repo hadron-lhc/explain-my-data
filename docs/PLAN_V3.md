@@ -65,7 +65,20 @@ Sobre titanic (93 insights), diamonds (68), adult (78):
   con `known/dup_columns.md` (regresa: copia numérica, etiqueta
   cat, y no-pliegue de casi-lineal no biyectivo). 21 tests en
   `tests/test_equivalence.py`.
-- [ ] **P2 — Trivialidades: conteos y discretos**
+- [x] **P2 — Trivialidades: conteos y discretos** (2026-10-16):
+  clasificación de columnas en `NumericDistribution` (`n_unique`,
+  `looks_like_count`, `is_low_cardinality_discrete`). Conteo =
+  entero, no negativo y cardinalidad ≤ `COUNT_MAX_UNIQUE=30`. En un
+  conteo se suprime el skew salvo que |skew| ≥ `COUNT_SKIP_SKEW=5.0`
+  y la concentración del 5% superior salvo que ≥
+  `COUNT_SKIP_TOP_PCT=80.0` (la asimetría y la concentración son la
+  forma esperada del conteo, no un hallazgo). En una numérica
+  discreta con ≤ `DISCRETE_SKIP_MODES_MAX=5` valores se suprime
+  "multiple subpopulations" (casi todos los valores son modos).
+  `fare`/`capital_gain` (continuas) conservan sus insights.
+  Corpus: `absent:` de regresión en `titanic.md` (sibsp/parch skew,
+  pclass modas) y `adult.md` (education_num modas). 12 tests nuevos
+  en `tests/test_distributions.py`.
 - [ ] **P3 — Validez contextual: missingness y significancia práctica**
 - [ ] **P4 — Narrativa y presupuesto de insights**
 - [ ] **P5 — Tarjetas más ricas (detalle y cross-links)**
@@ -81,11 +94,19 @@ Sobre titanic (93 insights), diamonds (68), adult (78):
   insights** / 15 datasets; verify **100% (375/375)**, **cobertura
   68.2%**; `check --strict` exit 0; 318 tests.
 
-Línea base tras P1 (16 datasets con `dup_columns`): `✓100/100 · ⊘2 ·
-claims 59/59 · absent✗0 · ⚠0 · ℹ29 · ✗info0` sobre **539 insights**;
-verify **100% (369/369)**, **cobertura 68.5%**; `check --strict` exit
-0; **335 tests**, ruff limpio. títanic 93→63, adult 78→61
-(tautologías/ecos plegados; ~40% menos en el corpus tautológico).
+Línea base tras P2 (16 datasets con `dup_columns`): `✓100/100 · ⊘2 ·
+claims 59/59 · absent✗0 · ⚠0 · ℹ29 · ✗info0` sobre **521 insights**;
+verify **100% (362/362)**, **cobertura 69.5%**; `check --strict` exit
+0; **344 tests**, ruff limpio. títanic 63→58 (skew de sibsp/parch y
+modas de pclass suprimidos); adult se mantiene en 76 pero con
+`education_num` ya sin tarjeta de modas — su skew era negativo, así
+que no era trivial y se conserva. `fare` y `capital_gain` conservan
+sus insights de skew y concentración.)
+
+(Línea base tras P1: `✓100/100 · ⊘2 · claims 59/59 · absent✗0 · ⚠0 ·
+ℹ29 · ✗info0` sobre **539 insights**; verify **100% (369/369)**,
+**cobertura 68.5%**; `check --strict` exit 0; 335 tests, ruff
+limpio. títanic 93→63, adult 78→61.)
 
 (Línea base al entrar en P1 = línea base al cerrar F6: `✓94/94 · ⊘2 ·
 claims 56/56 · absent✗0 · ⚠0 · ℹ29` sobre **550 insights** / 15

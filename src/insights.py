@@ -24,6 +24,8 @@ from dataclasses import dataclass, field
 from src.aggregations import CategoricalNumericAggregation
 from src.config import (
     BOOLEAN_DOMINANT_ALERT_SHARE,
+    COUNT_SKIP_SKEW,
+    COUNT_SKIP_TOP_PCT,
     EXECUTIVE_PER_CATEGORY_MAX,
     EXECUTIVE_SUMMARY_MAX_WARNINGS,
     EXECUTIVE_SUMMARY_TOP_N,
@@ -488,6 +490,13 @@ def _skewness_insight(distribution: NumericDistribution) -> Insight | None:
     if abs(skewness) < 1.0:
         return None
 
+    # Una variable de conteo es asimétrica a la derecha casi por
+    # definición (suelo en cero, cola larga de valores altos); emitir
+    # esa forma como hallazgo es trivial. Solo interesa si la asimetría
+    # es tan extrema que ya no es la forma esperada del conteo.
+    if distribution.looks_like_count and abs(skewness) < COUNT_SKIP_SKEW:
+        return None
+
     if skewness > 0:
         direction = "right-skewed (long right tail)"
         explanation = (
@@ -526,6 +535,12 @@ def _modality_insight(distribution: NumericDistribution) -> Insight | None:
     if distribution.modality != "multimodal":
         return None
 
+    # En una numérica discreta de pocos valores, cada pico del
+    # histograma es un valor posible; "varias subpoblaciones" no
+    # aporta nada cuando casi todos los valores son modos.
+    if distribution.is_low_cardinality_discrete:
+        return None
+
     return Insight(
         title=f"{distribution.column_name} suggests multiple subpopulations",
         message=(
@@ -550,6 +565,13 @@ def _concentration_insight(distribution: NumericDistribution) -> Insight | None:
     share = distribution.top_5pct_share
 
     if share is None or share < 40.0:
+        return None
+
+    # Un conteo siempre concentra una parte notable de su total en la
+    # cola superior (la masa se apila en los valores bajos). Emitir esa
+    # concentración como hallazgo es trivial; solo interesa si es tan
+    # desproporcionada que el total ya no representa al conjunto.
+    if distribution.looks_like_count and share < COUNT_SKIP_TOP_PCT:
         return None
 
     return Insight(
