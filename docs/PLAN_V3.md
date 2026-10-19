@@ -140,7 +140,31 @@ Sobre titanic (93 insights), diamonds (68), adult (78):
   chart compartido, frase dataset) y 3 en
   `tests/test_comparative_insights.py` (caps por métrica). 362
   tests.
-- [ ] **P5 — Tarjetas más ricas (detalle y cross-links)**
+- [x] **P5 — Tarjetas más ricas (detalle y cross-links)**
+  (2026-10-19): sin cambios de corpus (needs 100/100, claims
+  59/59, verify 330/330 intactos). Ejecutado:
+  - Asociaciones numéricas: R² (varianza lineal compartida) y
+    nota "largely non-linear" cuando |Spearman| − |Pearson| > 0.1
+    con |Pearson| < 0.8.
+  - Diferencias de grupo: ratio extremos ("top averages Nx the
+    bottom", si ≥1.5) y n de los grupos extremos.
+  - Asimetría: cinco números resumen (min/Q1/median/Q3/max) —
+    nuevos campos en `NumericDistribution`, calculados en
+    `calculate_numeric_distribution`.
+  - Cat-cat: ranking de combos sobrerrepresentados (hasta 3 con
+    |residual| ≥ 2), no solo el más fuerte.
+  - Cross-links: `apply_cross_links` (post-presupuesto, solo
+    tarjetas sobrevivientes) enlaza weak→strong cuando comparten
+    columna fuerte (score ≥ `CROSSLINK_MIN_STRENGTH=0.5`,
+    tope `CROSSLINK_MAX_PER_CARD=2`, determinista). Restricción a
+    familias relationship/distribution/pattern/temporal: sin ella
+    las comparativas ("X leads in Y", "No meaningful...") y
+    aggregation linkan con casi todo (39/54 tarjetas de titanic
+    con Related = spam; con la restricción 15/54 y enlaces
+    coherentes: "pclass~fare" → "fare is right-skewed",
+    "carat differs across color" → "carat outliers").
+  - Tests: `tests/test_enrichment.py` (15 tests). **377 tests**,
+    ruff limpio.
 - [x] **G1 — QA transversal: `noise:` a nivel info** (2026-10-16):
   `_evaluate_dataset` extiende el ruido a `severity=info`; un insight
   info que matchea un `noise:` sin `need` que lo justifique es ✗

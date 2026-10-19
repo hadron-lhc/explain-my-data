@@ -50,6 +50,14 @@ class NumericDistribution:
     # al DataFrame crudo.
     n_unique: int = 0
 
+    # Cinco números resumen. Permiten contextualizar asimetría y
+    # extremos en el insight sin volver al DataFrame crudo.
+    minimum: float | None = None
+    q1: float | None = None
+    median: float | None = None
+    q3: float | None = None
+    maximum: float | None = None
+
     # La columna parece una variable de conteo: entera, no negativa y
     # con cardinalidad acotada. Solo se emite si el total de
     # observaciones supera el mínimo del histograma.
@@ -173,6 +181,11 @@ def calculate_numeric_distribution(
         top_5pct_share=top_5pct_share,
         n_unique=n_unique,
         looks_like_count=looks_like_count,
+        minimum=float(values.min()),
+        q1=float(values.quantile(0.25)),
+        median=float(values.quantile(0.5)),
+        q3=float(values.quantile(0.75)),
+        maximum=float(values.max()),
     )
 
 

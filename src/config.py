@@ -174,6 +174,13 @@ INSIGHT_BUDGET_BY_FAMILY = {
 # referencia su tarjeta fuente.
 EXECUTIVE_SUMMARY_TOP_N = 8
 
+# Cross-links (P5): dos tarjetas que comparten una columna fuerte se
+# referencian entre sí ("Related: ..."), con score mínimo para no
+# encadenar hallazgos triviales y tope por tarjeta para no convertir
+# los caveats en una lista de enlaces.
+CROSSLINK_MIN_STRENGTH = 0.5
+CROSSLINK_MAX_PER_CARD = 2
+
 # --- Insights comparativos --------------------------------------------------
 
 # Gap mínimo top/segundo para emitir un ranking de grupo (total).

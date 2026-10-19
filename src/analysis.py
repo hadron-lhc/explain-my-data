@@ -51,6 +51,7 @@ from src.inference import (
 )
 from src.insights import (
     Insight,
+    apply_cross_links,
     apply_insight_budget,
     generate_aggregation_insights,
     generate_distribution_insights,
@@ -935,6 +936,21 @@ def analyze_dataset(
     temporal_insights = budgeted.get("temporal_insights", [])
     inference_insights = budgeted.get("inference_insights", [])
     ml_insights = budgeted.get("ml_insights", [])
+
+    # Cross-links (P5): solo las tarjetas que sobreviven al
+    # presupuesto se referencian entre sí.
+    apply_cross_links(
+        quality_insights
+        + relationship_insights
+        + distribution_insights
+        + pattern_insights
+        + structure_insights
+        + aggregation_insights
+        + comparative_insights
+        + temporal_insights
+        + inference_insights
+        + ml_insights
+    )
 
     executive_summary = generate_executive_summary(
         quality_insights

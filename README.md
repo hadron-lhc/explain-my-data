@@ -19,11 +19,15 @@ Dado un CSV, el pipeline:
    asimetría, curtosis, concentración del top 5%, modalidad.
 5. **Encuentra patrones**: grupos con medias muy distintas (≥1σ),
    outliers por columna, columnas constantes, agregados dominantes.
-6. **Redacta insights** en inglés con evidencia numérica y un
-   resumen ejecutivo narrativo (frase de contexto con dimensiones
-   del dataset + una frase por familia con cross-ref a la tarjeta
-   fuente), con presupuesto por familia para que el informe se
-   lea como un resumen y no como un vertedero de tarjetas.
+6. **Redacta insights** en inglés con evidencia numérica (R² en
+   correlaciones, ratio extremos y n por grupo en diferencias de
+   grupo, cinco números en asimetrías, combos destacados en
+   asociaciones categóricas, cross-links "Related:" entre tarjetas
+   que comparten una columna fuerte) y un resumen ejecutivo
+   narrativo (frase de contexto con dimensiones del dataset + una
+   frase por familia con cross-ref a la tarjeta fuente), con
+   presupuesto por familia para que el informe se lea como un
+   resumen y no como un vertedero de tarjetas.
 7. **Insights comparativos** (reglas puras): ranking de grupo por
    total con contraste volumen/valor, deconposición de drivers
    (¿mueve el volumen o el valor?), consistencia entre métricas
@@ -138,7 +142,7 @@ src/
 web/
   backend/          FastAPI
   frontend/         UI (JS vanilla + Plotly)
-tests/              362 tests
+tests/              377 tests
 docs/ROADMAP.md     especificación completa
 docs/PLAN_V2.md     plan de mejora por fases (ejecución)
 docs/PLAN_V3.md     plan de calidad de insights (ejecución)
@@ -158,8 +162,9 @@ V2 completa (pipeline + insights comparativos + curación + análisis
 temporal + ML recomendación) y **V3 en curso**: redundancia
 plegada (equivalencias/derivadas), trivialidades suprimidas,
 validez contextual (missingness, significancia práctica), presupuesto
-de insights por familia y resumen ejecutivo narrativo. **362 tests**,
-ruff limpio. La selección de relaciones incluye overrides (piso
+de insights por familia, resumen ejecutivo narrativo y tarjetas
+enriquecidas (R², ratio extremos, cinco números, cross-links).
+**377 tests**, ruff limpio. La selección de relaciones incluye overrides (piso
 fuerte para pares ≥0.9 y top-N por columna "hueca") porque el
 percentil p75 solo echaba relaciones clásicas en datasets con
 columnas redundantes; validado contra un playground de QA local

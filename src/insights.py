@@ -26,6 +26,8 @@ from src.config import (
     BOOLEAN_DOMINANT_ALERT_SHARE,
     COUNT_SKIP_SKEW,
     COUNT_SKIP_TOP_PCT,
+    CROSSLINK_MAX_PER_CARD,
+    CROSSLINK_MIN_STRENGTH,
     EXECUTIVE_SUMMARY_TOP_N,
     INSIGHT_BUDGET_BY_FAMILY,
     INSIGHT_BUDGET_TOTAL,
@@ -374,18 +376,39 @@ def _numeric_relationship_insight(
     else:
         direction = "monotonic"
 
+    # R²: fracción de varianza lineal compartida. Se comunica al
+    # usuario porque un Pearson de 0.72 suena "fuerte", pero solo
+    # explica ~la mitad de la varianza.
+    r_squared = relationship.pearson**2
+
+    # Diferencia Spearman/Pearson: monotónica fuerte pero lineal
+    # débil señala una relación no lineal (p.ej. saturación).
+    message = (
+        f"{relationship.column_x} and {relationship.column_y} "
+        f"show a {direction} association "
+        f"(Pearson: {relationship.pearson:.2f}, "
+        f"Spearman: {relationship.spearman:.2f}, "
+        f"n: {relationship.n_observations}). "
+        f"Linear R²: {r_squared:.2f} "
+        f"({relationship.column_x} explains {r_squared:.0%} of the "
+        f"linear variance in {relationship.column_y})."
+    )
+
+    if (
+        abs(relationship.spearman) - abs(relationship.pearson) > 0.1
+        and abs(relationship.pearson) < 0.8
+    ):
+        message += (
+            " Spearman is materially higher than Pearson, suggesting "
+            "the association is largely non-linear."
+        )
+
     return Insight(
         title=(
             f"Strong association between "
             f"{relationship.column_x} and {relationship.column_y}"
         ),
-        message=(
-            f"{relationship.column_x} and {relationship.column_y} "
-            f"show a {direction} association "
-            f"(Pearson: {relationship.pearson:.2f}, "
-            f"Spearman: {relationship.spearman:.2f}, "
-            f"n: {relationship.n_observations})."
-        ),
+        message=message,
         severity="info",
         category="relationship",
         columns=[relationship.column_x, relationship.column_y],
@@ -393,6 +416,7 @@ def _numeric_relationship_insight(
             "pearson": relationship.pearson,
             "spearman": relationship.spearman,
             "strength": strength,
+            "r_squared": r_squared,
             "n_observations": relationship.n_observations,
         },
         chart_id=chart_id_scatter(
@@ -439,6 +463,30 @@ def _categorical_numeric_relationship_insight(
     top_group = max(relationship.group_means, key=relationship.group_means.get)
     bottom_group = min(relationship.group_means, key=relationship.group_means.get)
 
+    top_mean = relationship.group_means[top_group]
+    bottom_mean = relationship.group_means[bottom_group]
+
+    # Ratio extremos: comunica la magnitud absoluta de la brecha,
+    # no solo la separación estandarizada.
+    ratio = top_mean / bottom_mean if bottom_mean > 0 else None
+
+    top_n = relationship.group_counts.get(top_group)
+    bottom_n = relationship.group_counts.get(bottom_group)
+    n_note = f" (n: {top_group} {top_n}, {bottom_group} {bottom_n})"
+
+    message = (
+        f"Average {relationship.column_numeric} varies substantially "
+        f"between {relationship.column_categorical} groups "
+        f"(group separation: {relationship.group_separation:.2f}). "
+        f"Highest average: {top_group} ({top_mean:.2f}); "
+        f"lowest: {bottom_group} ({bottom_mean:.2f})."
+    )
+
+    if ratio is not None and ratio >= 1.5:
+        message += f" The top group averages {ratio:.1f}x the bottom group."
+
+    message += n_note
+
     caveats = [ASSOCIATION_CAVEAT, *coverage_caveats]
 
     score = relationship.group_separation
@@ -454,23 +502,16 @@ def _categorical_numeric_relationship_insight(
             f"{relationship.column_numeric} differs across "
             f"{relationship.column_categorical} groups"
         ),
-        message=(
-            f"Average {relationship.column_numeric} varies substantially "
-            f"between {relationship.column_categorical} groups "
-            f"(group separation: {relationship.group_separation:.2f}). "
-            f"Highest average: {top_group} "
-            f"({relationship.group_means[top_group]:.2f}); "
-            f"lowest: {bottom_group} "
-            f"({relationship.group_means[bottom_group]:.2f})."
-        ),
+        message=message,
         severity="info",
         category="relationship",
         columns=[relationship.column_categorical, relationship.column_numeric],
         evidence={
             "group_separation": relationship.group_separation,
             "n_groups": relationship.n_groups,
-            "top_group_mean": relationship.group_means[top_group],
-            "bottom_group_mean": relationship.group_means[bottom_group],
+            "top_group_mean": top_mean,
+            "bottom_group_mean": bottom_mean,
+            "top_bottom_ratio": ratio,
             "coverage_pct": round(relationship.coverage_pct, 2),
         },
         chart_id=chart_id_categorical_numeric(
@@ -494,6 +535,15 @@ def _categorical_categorical_relationship_insight(
         default=None,
     )
 
+    # Top-3 combos sobrerrepresentados: una sola celda rara vez cuenta
+    # la historia completa de la asociación; el plan P5 pide el
+    # ranking corto de celdas que cargan la relación.
+    notable = sorted(
+        (assoc for assoc in relationship.top_associations if abs(assoc[2]) >= 2.0),
+        key=lambda association: abs(association[2]),
+        reverse=True,
+    )[:3]
+
     message = (
         f"{relationship.column_x} and {relationship.column_y} "
         f"are associated (Cramér's V: {relationship.cramers_v:.2f}, "
@@ -501,13 +551,16 @@ def _categorical_categorical_relationship_insight(
         f"n: {relationship.n_observations})."
     )
 
-    if strongest is not None and abs(strongest[2]) >= 2.0:
-        direction = "over-represented" if strongest[2] > 0 else "under-represented"
-        message += (
-            f" The combination {relationship.column_x}={strongest[0]} with "
-            f"{relationship.column_y}={strongest[1]} is {direction} "
-            f"compared to independence (residual: {strongest[2]:.2f})."
-        )
+    if notable:
+        parts: list[str] = []
+        for value_x, value_y, residual in notable:
+            direction = "over-represented" if residual > 0 else "under-represented"
+            parts.append(
+                f"{relationship.column_x}={value_x} with "
+                f"{relationship.column_y}={value_y} is {direction} "
+                f"(residual: {residual:.2f})"
+            )
+        message += " Standout combinations vs independence: " + "; ".join(parts) + "."
 
     evidence: dict[str, float | int | str] = {
         "cramers_v": relationship.cramers_v,
@@ -518,6 +571,11 @@ def _categorical_categorical_relationship_insight(
 
     if strongest is not None:
         evidence["strongest_residual"] = strongest[2]
+
+    if notable:
+        evidence["top_combinations"] = "; ".join(
+            f"{value_x}|{value_y}" for value_x, value_y, _ in notable
+        )
 
     return Insight(
         title=(
@@ -599,12 +657,30 @@ def _skewness_insight(distribution: NumericDistribution) -> Insight | None:
             "the typical observation."
         )
 
+    # Cinco números resumen: sin ellos "skewness 2.4" no dice qué tan
+    # lejos está la cola del cuerpo de la distribución.
+    summary: list[str] = []
+    if (
+        distribution.minimum is not None
+        and distribution.q1 is not None
+        and distribution.median is not None
+        and distribution.q3 is not None
+        and distribution.maximum is not None
+    ):
+        summary.append(
+            f"Range: {distribution.minimum:.2f} to "
+            f"{distribution.maximum:.2f} "
+            f"(Q1 {distribution.q1:.2f}, median "
+            f"{distribution.median:.2f}, Q3 {distribution.q3:.2f})."
+        )
+
     return Insight(
         title=f"{distribution.column_name} is {direction}",
         message=(
             f"{distribution.column_name} has a strong skew "
             f"(skewness: {skewness:.2f}) across "
-            f"{distribution.n_observations} observations. {explanation}"
+            f"{distribution.n_observations} observations. "
+            f"{' '.join(summary)} {explanation}"
         ),
         severity="info",
         category="distribution",
@@ -613,6 +689,11 @@ def _skewness_insight(distribution: NumericDistribution) -> Insight | None:
             "skewness": skewness,
             "kurtosis": distribution.kurtosis,
             "n_observations": distribution.n_observations,
+            "minimum": distribution.minimum,
+            "q1": distribution.q1,
+            "median": distribution.median,
+            "q3": distribution.q3,
+            "maximum": distribution.maximum,
         },
         chart_id=chart_id_histogram(distribution.column_name),
         score=abs(skewness),
@@ -1159,6 +1240,79 @@ def apply_insight_budget(
             kept_total -= drop
 
     return {family: insights for family, insights in result.items() if insights}
+
+
+def _short_title(insight: Insight) -> str:
+    if len(insight.title) <= 56:
+        return insight.title
+    return insight.title[:53] + "..."
+
+
+def apply_cross_links(insights: list[Insight]) -> list[Insight]:
+    """
+    Cross-links (P5): dos tarjetas fuertes que comparten una columna
+    se referencian entre sí vía caveats ("Related: <título>").
+
+    Determinismo:
+    - Solo familias sustantivas (relationship, distribution, pattern,
+      temporal). Las familias comparative/aggregation comparten la
+      métrica con casi todo ("X leads in Y", "No meaningful
+      association between A and B") y convierten los caveats en spam.
+    - Solo tarjetas con score >= CROSSLINK_MIN_STRENGTH (una columna
+      "fuerte" en ambas tarjetas); quality queda fuera por ser
+      operativa, no de contexto.
+    - El enlace va de la tarjeta más débil a la más fuerte: quien
+      menos contexto aporta apunta a quien lo aporta. En empate de
+      score decide el título alfabéticamente menor.
+    - Candidatos ordenados por (-score, título); tope
+      CROSSLINK_MAX_PER_CARD por tarjeta.
+    """
+    linkable_categories = {"relationship", "distribution", "pattern", "temporal"}
+    links_from: dict[str, int] = {}
+
+    def add_link(insight: Insight, other: Insight) -> None:
+        used = links_from.get(insight.id, 0)
+
+        if used >= CROSSLINK_MAX_PER_CARD:
+            return
+
+        insight.caveats.append("Related: " + _short_title(other))
+        links_from[insight.id] = used + 1
+
+    eligible = [
+        insight
+        for insight in insights
+        if insight.score >= CROSSLINK_MIN_STRENGTH
+        and insight.category in linkable_categories
+    ]
+
+    for position, insight in enumerate(eligible):
+        candidates = [
+            other
+            for index, other in enumerate(eligible)
+            if index != position
+            and set(insight.columns) & set(other.columns)
+            and other.title != insight.title
+            # Enlace weak→strong; en empate de score, el título
+            # alfabéticamente menor es el destino.
+            and (
+                other.score > insight.score
+                or (
+                    other.score == insight.score
+                    and other.title < insight.title
+                )
+            )
+        ]
+
+        if not candidates:
+            continue
+
+        candidates.sort(key=lambda other: (-other.score, other.title))
+
+        for other in candidates[:CROSSLINK_MAX_PER_CARD]:
+            add_link(insight, other)
+
+    return insights
 
 
 _FAMILY_PRIORITY = {
