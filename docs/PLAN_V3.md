@@ -183,7 +183,26 @@ Sobre titanic (93 insights), diamonds (68), adult (78):
   413, no-csv, clean csv, format inválido, clean json). **386
   tests**, ruff limpio. Sin cambios de corpus (P4/P5 no tocaron
   títulos de needs).
-- [ ] **D1 — Dockerfile + wrangler + Worker proxy**
+- [x] **D1 — Dockerfile + wrangler + Worker proxy** (2026-10-19):
+  - `Dockerfile`: python:3.12-slim + uv (`uv sync --frozen --no-dev`
+    sobre `uv.lock`; `package=false` ⇒ solo dependencias), copia
+    `src/` y `web/`, sirve uvicorn en 0.0.0.0:8000 con
+    `PYTHONPATH=/app`. `.dockerignore` acota el build context.
+  - `wrangler.jsonc`: container `basic` (¼ vCPU/1GiB),
+    `max_instances: 1`, Durable Object con exports sqlite.
+  - `worker/index.js`: `ExplainMyData extends Container`
+    (`defaultPort=8000`, `sleepAfter="10m"` ⇒ scale-to-zero); el
+    fetch handler enruta todo al singleton
+    (`getByName("main")` → `container.fetch(request)`), la SPA y la
+    API viajan por el mismo origen.
+  - `package.json` (wrangler ^4.151.2, @cloudflare/containers
+    ^0.3.7) + entradas en `.gitignore`.
+  - Validación local: `wrangler deploy --dry-run
+    --containers-rollout=none` bundlea el Worker (53 KiB) y resuelve
+    el binding + la ruta de la imagen. El build de la imagen no
+    pudo ejecutarse en este entorno (daemon Docker inactivo); queda
+    como smoke del primer deploy real.
+- [ ] **D2 — docs/DEPLOY.md + CI/CD**
 - [x] **G1 — QA transversal: `noise:` a nivel info** (2026-10-16):
   `_evaluate_dataset` extiende el ruido a `severity=info`; un insight
   info que matchea un `noise:` sin `need` que lo justifique es ✗

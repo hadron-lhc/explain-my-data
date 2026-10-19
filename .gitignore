@@ -73,3 +73,11 @@ data/messy_sales.csv
 *.tmp
 output*.txt
 outpu*.txt
+
+# =========================
+# Cloudflare (D1)
+# =========================
+
+node_modules/
+.wrangler/
+dist/
