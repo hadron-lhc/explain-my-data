@@ -109,6 +109,16 @@ PDF/HTML descargado los respeta vía `/report?hide=...` y
 UI, p. ej. `histogram:revenue` o `bar:country:revenue`) para que
 impreso y pantalla coincidan.
 
+### Deploy (Cloudflare)
+
+El backend + UI se despliegan como **Worker + Container** en
+Cloudflare (scale-to-zero, un solo origen). Guía completa en
+[`docs/DEPLOY.md`](docs/DEPLOY.md); resumen:
+
+```bash
+npm install && npx wrangler deploy
+```
+
 ### Tests y lint
 
 ```bash
@@ -154,6 +164,7 @@ tests/              386 tests
 docs/ROADMAP.md     especificación completa
 docs/PLAN_V2.md     plan de mejora por fases (ejecución)
 docs/PLAN_V3.md     plan de calidad de insights (ejecución)
+docs/DEPLOY.md      deploy en Cloudflare (Worker + Container)
 ```
 
 ## Principios

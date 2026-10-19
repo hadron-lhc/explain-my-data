@@ -10,6 +10,10 @@ export class ExplainMyData extends Container {
   // Scale-to-zero tras 10 minutos de inactividad ( Workers Paid:
   // solo se cobra el tiempo con instancias activas).
   sleepAfter = "10m";
+  // Límite de upload del backend (20MB). CSVs de trabajo <5MB.
+  envVars = {
+    EMD_MAX_UPLOAD_BYTES: "20971520",
+  };
 }
 
 export default {

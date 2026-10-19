@@ -202,7 +202,22 @@ Sobre titanic (93 insights), diamonds (68), adult (78):
     el binding + la ruta de la imagen. El build de la imagen no
     pudo ejecutarse en este entorno (daemon Docker inactivo); queda
     como smoke del primer deploy real.
-- [ ] **D2 — docs/DEPLOY.md + CI/CD**
+- [x] **D2 — docs/DEPLOY.md + CI/CD** (2026-10-19):
+  - `docs/DEPLOY.md`: arquitectura, prerrequisitos (Workers Paid,
+    Docker, Node), deploy manual (`npx wrangler deploy`), secrets de
+    GitHub (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`),
+    tabla de config (`EMD_MAX_UPLOAD_BYTES`), costos/ciclo de vida
+    (sleepAfter 10m, `basic`) y troubleshooting (provisioning,
+    Apple Silicon/amd64, 413).
+  - `.github/workflows/ci.yml`: ruff + pytest en push/PR (uv,
+    cache).
+  - `.github/workflows/deploy.yml`: `npx wrangler deploy` en push a
+    `main` y `workflow_dispatch`, con concurrency lock; usa los
+    secrets de Cloudflare.
+  - `envVars.EMD_MAX_UPLOAD_BYTES` expuesto en el Container class
+    del Worker (el backend ya lo leía con default 20MB).
+  - README: sección "Deploy (Cloudflare)" + `docs/DEPLOY.md` en el
+    árbol.
 - [x] **G1 — QA transversal: `noise:` a nivel info** (2026-10-16):
   `_evaluate_dataset` extiende el ruido a `severity=info`; un insight
   info que matchea un `noise:` sin `need` que lo justifique es ✗
