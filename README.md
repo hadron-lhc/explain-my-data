@@ -64,26 +64,34 @@ candidatos de análisis, insights y el resumen ejecutivo.
 uv run uvicorn web.backend.main:app --port 8000
 ```
 
-Endpoints: `POST /analyze`, `POST /clean`, `POST /report` (informe HTML
+El backend sirve la SPA en el mismo origen: abrí
+`http://localhost:8000` (sin pasos extra). Endpoints: `POST /analyze`,
+`POST /clean` (preview JSON con limpieza; `?format=csv` devuelve el
+dataset limpio como descarga), `POST /report` (informe HTML
 autocontenido y listo para imprimir; con `?hide=id1,id2` excluye
 insights que el usuario ocultó en la UI y con
 `?hide_charts=histogram:col,bar:a:b` excluye charts de
 "Additional charts"), `GET /health`.
+
+El límite de upload es 20MB (`EMD_MAX_UPLOAD_BYTES` lo cambia); los
+CSVs de trabajo esperados son <5MB.
 
 El informe `/report` está pensado para **print-to-PDF**: cada sección
 es una página (portada, overview, calidad, patterns, resumen ejecutivo,
 un insight por página con sus gráficos, apéndice técnico), con CSS de
 `@media print` y auto-impresión al abrirlo con el hash `#print`.
 
-La UI es una SPA estática en `web/frontend/` (Plotly por CDN).
-Para servirla en desarrollo:
+La UI es una SPA estática en `web/frontend/` (Plotly por CDN) que usa
+same-origin por defecto (funciona servida por el backend). Para
+desarrollo con la SPA en otro puerto:
 
 ```bash
 python -m http.server 5500 --directory web/frontend
 ```
 
-y abrí `http://localhost:5500`. La UI apunta a `http://127.0.0.1:8000`
-(ver `web/frontend/api.js`). La carga es un dropzone grande con
+y abrí `http://localhost:5500` (ese puerto dispara la config de dev
+hacia `http://127.0.0.1:8000`, ver el script en `index.html`). La
+carga es un dropzone grande con
 drag & drop del CSV o click para abrir el explorador (al soltar o
 seleccionar el archivo empieza el análisis solo). El flujo de la UI es:
 overview (KPIs + perfil de columnas) → calidad → limpieza (drawer con
@@ -142,7 +150,7 @@ src/
 web/
   backend/          FastAPI
   frontend/         UI (JS vanilla + Plotly)
-tests/              377 tests
+tests/              386 tests
 docs/ROADMAP.md     especificación completa
 docs/PLAN_V2.md     plan de mejora por fases (ejecución)
 docs/PLAN_V3.md     plan de calidad de insights (ejecución)
@@ -163,8 +171,9 @@ temporal + ML recomendación) y **V3 en curso**: redundancia
 plegada (equivalencias/derivadas), trivialidades suprimidas,
 validez contextual (missingness, significancia práctica), presupuesto
 de insights por familia, resumen ejecutivo narrativo y tarjetas
-enriquecidas (R², ratio extremos, cinco números, cross-links).
-**377 tests**, ruff limpio. La selección de relaciones incluye overrides (piso
+enriquecidas (R², ratio extremos, cinco números, cross-links) y
+web cloud-ready (same-origin, límite de upload, `/clean?format=csv`).
+**386 tests**, ruff limpio. La selección de relaciones incluye overrides (piso
 fuerte para pares ≥0.9 y top-N por columna "hueca") porque el
 percentil p75 solo echaba relaciones clásicas en datasets con
 columnas redundantes; validado contra un playground de QA local

@@ -1,4 +1,7 @@
-const API_URL = "http://127.0.0.1:8000";
+// Same-origin por defecto (contenedor/producción: UI y API servidas
+// por el mismo backend). Para dev con http.server en otro puerto,
+// index.html define window.EXPLAIN_MY_DATA_API_URL.
+const API_URL = window.EXPLAIN_MY_DATA_API_URL ?? "";
 
 async function requestReport(endpoint, formData, errorMessage) {
   const response = await fetch(`${API_URL}${endpoint}`, {

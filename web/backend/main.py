@@ -2,17 +2,29 @@ from __future__ import annotations
 
 import io
 import json
+import os
+from pathlib import Path
 
 import pandas as pd
 from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 
 from src.analysis import analyze_dataset
 from src.cleaning import CleaningConfig, clean_dataset
 from src.profiling import profile_dataset
 from src.quality import quality_dataset
 from src.reporting import render_html_report
+
+# Límite de upload (cloud-readiness D0): el contenedor recibe CSVs
+# pequeños (<5MB de trabajo); 20MB es el techo con holgura. Evita
+# que un upload gigante agote la memoria del aislante.
+MAX_UPLOAD_BYTES = int(os.environ.get("EMD_MAX_UPLOAD_BYTES", str(20 * 1024 * 1024)))
+
+# Carpeta de la SPA. En el contenedor UI y API comparten origen, lo
+# que permite que api.js use URLs relativas.
+FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 
 app = FastAPI(
     title="Explain My Data API",
@@ -46,9 +58,26 @@ def read_csv_upload(file: UploadFile) -> pd.DataFrame:
             detail="Only CSV files are supported.",
         )
 
+    # Lectura acotada: nunca más de MAX_UPLOAD_BYTES en memoria.
+    chunks: list[bytes] = []
+    total = 0
+
+    while chunk := file.file.read(1024 * 1024):
+        total += len(chunk)
+
+        if total > MAX_UPLOAD_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=(
+                    f"File exceeds the {MAX_UPLOAD_BYTES // (1024 * 1024)}MB "
+                    "upload limit."
+                ),
+            )
+
+        chunks.append(chunk)
+
     try:
-        contents = file.file.read()
-        return pd.read_csv(io.BytesIO(contents))
+        return pd.read_csv(io.BytesIO(b"".join(chunks)))
     except Exception as exc:
         raise HTTPException(
             status_code=400,
@@ -177,8 +206,21 @@ def clean_csv(
     outlier_strategy: str = Form("keep"),
     outlier_columns: str = Form(""),
     numeric_ranges: str = Form(""),
+    format: str = Query(
+        default="json",
+        description=(
+            "json: informe + preview de filas (UI). "
+            "csv: descarga del dataset limpio."
+        ),
+    ),
 ):
     df = read_csv_upload(file)
+
+    if format not in ("json", "csv"):
+        raise HTTPException(
+            status_code=400,
+            detail="format must be 'json' or 'csv'.",
+        )
 
     try:
         profile = profile_dataset(df)
@@ -218,14 +260,36 @@ def clean_csv(
             config,
         )
 
-        cleaned_analysis = analyze_dataset(cleaned_df)
-
     except ValueError as exc:
         raise HTTPException(
             status_code=400,
             detail=str(exc),
         ) from exc
 
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Cleaning failed: {exc}",
+        ) from exc
+
+    if format == "csv":
+        # Descarga del CSV limpio sin pasar por el preview JSON
+        # (que materializa todas las filas como dicts).
+        buffer = io.StringIO()
+        cleaned_df.to_csv(buffer, index=False)
+
+        return StreamingResponse(
+            iter([buffer.getvalue()]),
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": (
+                    'attachment; filename="cleaned-data.csv"'
+                ),
+            },
+        )
+
+    try:
+        cleaned_analysis = analyze_dataset(cleaned_df)
     except Exception as exc:
         raise HTTPException(
             status_code=500,
@@ -241,3 +305,11 @@ def clean_csv(
             .to_dict(orient="records")
         ),
     }
+
+
+# SPA montada al final (las rutas de API registradas antes tienen
+# prioridad). En el contenedor esto sirve UI y API en un solo
+# origen; para dev con http.server en otro puerto ver el script de
+# config en index.html.
+if FRONTEND_DIR.is_dir():
+    app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")

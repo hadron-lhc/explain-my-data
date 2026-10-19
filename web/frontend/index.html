@@ -348,6 +348,14 @@
       </section>
     </main>
 
+    <script>
+      // Dev: la SPA servida por http.server (puerto 5500) apunta al
+      // backend local. Servida por el backend (uvicorn/contenedor,
+      // cualquier otro puerto) usa same-origin y no necesita config.
+      if (location.port === "5500") {
+        window.EXPLAIN_MY_DATA_API_URL = "http://127.0.0.1:8000";
+      }
+    </script>
     <script type="module" src="app.js"></script>
   </body>
 </html>

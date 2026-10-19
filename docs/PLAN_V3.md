@@ -165,6 +165,25 @@ Sobre titanic (93 insights), diamonds (68), adult (78):
     "carat differs across color" → "carat outliers").
   - Tests: `tests/test_enrichment.py` (15 tests). **377 tests**,
     ruff limpio.
+- [x] **D0 — Cloud-readiness** (2026-10-19): backend listo para el
+  contenedor. `web/backend/main.py`: límite de upload acotado y
+  configurable (`EMD_MAX_UPLOAD_BYTES`, default 20MB; rechaza con
+  413 leyendo en chunks, sin cargar el archivo entero en memoria),
+  SPA montada en `/` con `StaticFiles` (UI y API same-origin, la
+  SPA se sirve sin pasos extra), `/clean` acepta `?format=csv`
+  (devuelve el dataset limpio como descarga `text/csv` sin pasar
+  por el preview JSON que materializa todas las filas como dicts).
+  `web/frontend/api.js` usa same-origin por defecto
+  (`window.EXPLAIN_MY_DATA_API_URL` opcional); el script en
+  `index.html` solo lo pisa si el puerto es 5500 (flujo de
+  http.server en dev). Endpoints en `def` sync a propósito: FastAPI
+  los corre en el threadpool y pandas es CPU-bound (un `async def`
+  bloquearía el event loop durante el análisis). Tests:
+  `tests/test_web_api.py` (9 tests: health, SPA, analyze, report,
+  413, no-csv, clean csv, format inválido, clean json). **386
+  tests**, ruff limpio. Sin cambios de corpus (P4/P5 no tocaron
+  títulos de needs).
+- [ ] **D1 — Dockerfile + wrangler + Worker proxy**
 - [x] **G1 — QA transversal: `noise:` a nivel info** (2026-10-16):
   `_evaluate_dataset` extiende el ruido a `severity=info`; un insight
   info que matchea un `noise:` sin `need` que lo justifique es ✗
