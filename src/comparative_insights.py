@@ -26,9 +26,12 @@ from src.config import (
     BALANCED_SKEW,
     COMPARATIVE_BALANCED_MAX,
     COMPARATIVE_CONSISTENCY_MAX,
+    COMPARATIVE_CONSISTENCY_PER_METRIC_MAX,
     COMPARATIVE_DRIVER_MAX,
+    COMPARATIVE_DRIVER_PER_METRIC_MAX,
     COMPARATIVE_NULL_MAX,
     COMPARATIVE_RANK_MAX,
+    COMPARATIVE_RANK_PER_METRIC_MAX,
     CONSISTENCY_GAP,
     COVERAGE_FULL_PCT,
     DRIVER_SPREAD_RATIO,
@@ -311,8 +314,30 @@ def generate_ranking_insights(
         if category_column not in best_by_category:
             best_by_category[category_column] = insight
 
-    ranked = sorted(
+    # Además, a lo sumo COMPARATIVE_RANK_PER_METRIC_MAX rankings por
+    # métrica: una métrica concentrada no debe generar un ranking por
+    # cada columna categórica del dataset (P4).
+    by_metric: dict[str, list[Insight]] = {}
+
+    for insight in sorted(
         best_by_category.values(),
+        key=lambda item: item.score,
+        reverse=True,
+    ):
+        metric_column = insight.columns[1]
+        queue = by_metric.setdefault(metric_column, [])
+
+        if len(queue) < COMPARATIVE_RANK_PER_METRIC_MAX:
+            queue.append(insight)
+
+    capped = [
+        insight
+        for queue in by_metric.values()
+        for insight in queue
+    ]
+
+    ranked = sorted(
+        capped,
         key=lambda item: item.score,
         reverse=True,
     )
@@ -452,8 +477,29 @@ def generate_driver_insights(
         if category_column not in best_by_category:
             best_by_category[category_column] = insight
 
-    ranked = sorted(
+    # A lo sumo COMPARATIVE_DRIVER_PER_METRIC_MAX drivers por métrica
+    # (P4): "capital_gain driven by occupation" es el hallazgo; el
+    # mismo hallazgo repetido por workclass/relationship/race no añade
+    # nada.
+    by_metric: dict[str, list[Insight]] = {}
+
+    for insight in sorted(
         best_by_category.values(),
+        key=lambda item: item.score,
+        reverse=True,
+    ):
+        metric_column = insight.columns[1]
+        queue = by_metric.setdefault(metric_column, [])
+
+        if len(queue) < COMPARATIVE_DRIVER_PER_METRIC_MAX:
+            queue.append(insight)
+
+    ranked = sorted(
+        (
+            insight
+            for queue in by_metric.values()
+            for insight in queue
+        ),
         key=lambda item: item.score,
         reverse=True,
     )
@@ -567,7 +613,29 @@ def _consistency_insights(
             candidates.append(max(category_candidates, key=lambda item: item[0]))
 
     candidates.sort(key=lambda item: item[0], reverse=True)
-    return [insight for _, insight in candidates[:COMPARATIVE_CONSISTENCY_MAX]]
+
+    # A lo sumo COMPARATIVE_CONSISTENCY_PER_METRIC_MAX por métrica
+    # (P4): "White también lidera capital_loss" y "Male también
+    # lidera capital_loss" son el mismo hallazgo.
+    by_metric: dict[str, list[Insight]] = {}
+
+    for _, insight in candidates:
+        metric_column = insight.columns[1]
+        queue = by_metric.setdefault(metric_column, [])
+
+        if len(queue) < COMPARATIVE_CONSISTENCY_PER_METRIC_MAX:
+            queue.append(insight)
+
+    capped = sorted(
+        (
+            insight
+            for queue in by_metric.values()
+            for insight in queue
+        ),
+        key=lambda item: item.score,
+        reverse=True,
+    )
+    return capped[:COMPARATIVE_CONSISTENCY_MAX]
 
 
 def generate_consistency_insights(

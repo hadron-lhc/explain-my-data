@@ -20,7 +20,10 @@ Dado un CSV, el pipeline:
 5. **Encuentra patrones**: grupos con medias muy distintas (≥1σ),
    outliers por columna, columnas constantes, agregados dominantes.
 6. **Redacta insights** en inglés con evidencia numérica y un
-   resumen ejecutivo (máx. 2 warnings de calidad + lo mejor por score).
+   resumen ejecutivo narrativo (frase de contexto con dimensiones
+   del dataset + una frase por familia con cross-ref a la tarjeta
+   fuente), con presupuesto por familia para que el informe se
+   lea como un resumen y no como un vertedero de tarjetas.
 7. **Insights comparativos** (reglas puras): ranking de grupo por
    total con contraste volumen/valor, deconposición de drivers
    (¿mueve el volumen o el valor?), consistencia entre métricas
@@ -135,9 +138,10 @@ src/
 web/
   backend/          FastAPI
   frontend/         UI (JS vanilla + Plotly)
-tests/              318 tests
+tests/              362 tests
 docs/ROADMAP.md     especificación completa
 docs/PLAN_V2.md     plan de mejora por fases (ejecución)
+docs/PLAN_V3.md     plan de calidad de insights (ejecución)
 ```
 
 ## Principios
@@ -150,14 +154,19 @@ docs/PLAN_V2.md     plan de mejora por fases (ejecución)
 
 ## Estado
 
-V2: pipeline completo + insights comparativos + curación (un
-hallazgo = una tarjeta) + análisis temporal + ML recomendación, **318 tests**, ruff
-limpio. La selección de relaciones incluye overrides (piso fuerte
-para pares ≥0.9 y top-N por columna "hueca") porque el percentil
-p75 solo echaba relaciones clásicas en datasets con columnas
-redundantes; validado contra un playground de QA local
-(`explain-my-data-qa`, 13 datasets clásicos + sintéticos con ground
-truth: recall de needs 77/77, claims 42/42, precisión medida 100%).
+V2 completa (pipeline + insights comparativos + curación + análisis
+temporal + ML recomendación) y **V3 en curso**: redundancia
+plegada (equivalencias/derivadas), trivialidades suprimidas,
+validez contextual (missingness, significancia práctica), presupuesto
+de insights por familia y resumen ejecutivo narrativo. **362 tests**,
+ruff limpio. La selección de relaciones incluye overrides (piso
+fuerte para pares ≥0.9 y top-N por columna "hueca") porque el
+percentil p75 solo echaba relaciones clásicas en datasets con
+columnas redundantes; validado contra un playground de QA local
+(`explain-my-data-qa`, 16 datasets clásicos + sintéticos con ground
+truth: needs 100/100, claims 59/59, precisión medida 100%).
 
-Ruta de mejora por fases en [`docs/PLAN_V2.md`](docs/PLAN_V2.md);
-visión a largo plazo en [`docs/ROADMAP.md`](docs/ROADMAP.md).
+Ruta de mejora en [`docs/PLAN_V3.md`](docs/PLAN_V3.md) (calidad de
+insights, en curso) y [`docs/PLAN_V2.md`](docs/PLAN_V2.md)
+(completada); visión a largo plazo en
+[`docs/ROADMAP.md`](docs/ROADMAP.md).

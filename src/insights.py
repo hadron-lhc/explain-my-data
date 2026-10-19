@@ -26,9 +26,9 @@ from src.config import (
     BOOLEAN_DOMINANT_ALERT_SHARE,
     COUNT_SKIP_SKEW,
     COUNT_SKIP_TOP_PCT,
-    EXECUTIVE_PER_CATEGORY_MAX,
-    EXECUTIVE_SUMMARY_MAX_WARNINGS,
     EXECUTIVE_SUMMARY_TOP_N,
+    INSIGHT_BUDGET_BY_FAMILY,
+    INSIGHT_BUDGET_TOTAL,
     MIN_GROUP_SEPARATION,
     MIN_RELATIVE_DIFF,
     RELATIONSHIP_MAX_MISSING_PCT,
@@ -1100,23 +1100,102 @@ def generate_quality_insights(
 _SEVERITY_WEIGHT = {"warning": 2.0, "info": 1.0}
 
 
+def apply_insight_budget(
+    by_family: dict[str, list[Insight]],
+) -> dict[str, list[Insight]]:
+    """
+    Presupuesto por familia (P4): recorta cada familia a su cupo,
+    conservando los mejores por score dentro de la familia.
+
+    Fase 1: por familia, los `quota[family]` mejores por score. No
+    hay dedupe por `chart_id`: varios insights pueden prometer el
+    mismo chart (la serie temporal completa, el histograma de una
+    columna) y cada uno es un hallazgo distinto — el corte es
+    siempre por score, nunca por chart compartido.
+
+    Fase 2: si el total supera `INSIGHT_BUDGET_TOTAL` (guarda
+    patológica; con los quotas actuales ningún dataset del corpus
+    QA lo alcanza), se recorta por prioridad de familia: contexto
+    primero (aggregation, comparative), sustancia después,
+    calidad nunca.
+    """
+    quotas = INSIGHT_BUDGET_BY_FAMILY
+
+    def priority(family: str) -> int:
+        return _FAMILY_PRIORITY.get(family, len(_FAMILY_PRIORITY))
+
+    budget_total = INSIGHT_BUDGET_TOTAL
+    kept_total = 0
+    result: dict[str, list[Insight]] = {}
+
+    for family, insights in by_family.items():
+        quota = quotas.get(family, 0)
+        ordered = sorted(
+            insights,
+            key=lambda insight: insight.score,
+            reverse=True,
+        )
+        result[family] = ordered[:quota]
+        kept_total += len(result[family])
+
+    # Fase 2: guarda patológica. Recorta empezando por la familia
+    # de menor prioridad (contexto primero), y dentro de cada
+    # familia por el peor score.
+    if kept_total > budget_total:
+        for family in sorted(
+            (key for key in result if result[key]),
+            key=lambda name: (-priority(name), name),
+            reverse=True,
+        ):
+            queue = result[family]
+            overflow = kept_total - budget_total
+
+            if overflow <= 0:
+                break
+
+            queue.sort(key=lambda insight: insight.score)
+            drop = min(overflow, len(queue))
+            result[family] = queue[drop:]
+            kept_total -= drop
+
+    return {family: insights for family, insights in result.items() if insights}
+
+
+_FAMILY_PRIORITY = {
+    "quality_insights": 0,
+    "relationship_insights": 1,
+    "inference_insights": 2,
+    "distribution_insights": 3,
+    "pattern_insights": 4,
+    "structure_insights": 5,
+    "temporal_insights": 6,
+    "ml_insights": 7,
+    "comparative_insights": 8,
+    "aggregation_insights": 9,
+}
+
+
 def generate_executive_summary(
     insights: list[Insight],
     *,
+    n_rows: int | None = None,
+    n_columns: int | None = None,
     top_n: int = EXECUTIVE_SUMMARY_TOP_N,
-    max_warnings: int = EXECUTIVE_SUMMARY_MAX_WARNINGS,
-    max_per_category: int = EXECUTIVE_PER_CATEGORY_MAX,
 ) -> list[Insight]:
     """
-    Selecciona los hallazgos más relevantes.
+    Resumen ejecutivo narrativo (P4): 4-6 frases construidas por
+    template, en vez de un vertedero de tarjetas.
 
-    Estrategia: como máximo `max_warnings` alerts de calidad
-    (para que no ahoguen los insights analíticos) y el resto se
-    completa con selección estratificada por categoría (round-robin
-    en orden de score): los scores no son comparables entre familias
-    (un group_separation 2.0 compite contra un "ranking score 100"),
-    así cada familia aporta sus mejores hallazgos al resumen.
+    Cada frase referencia (por título corto) la tarjeta fuente; el
+    resultado sigue siendo una lista de `Insight` (para no romper
+    `_INSIGHT_LIST_FIELDS`) con `category="executive_summary"`.
+    Las familias se buscan por la `category` real de los insights
+    (`relationship`, `quality`, …), no por el nombre de familia del
+    presupuesto (`relationship_insights`, …).
     """
+    if not insights:
+        return []
+
     ranked = sorted(
         insights,
         key=lambda insight: (
@@ -1125,72 +1204,71 @@ def generate_executive_summary(
         reverse=True,
     )
 
-    warnings = [insight for insight in ranked if insight.severity == "warning"]
-    others = [insight for insight in ranked if insight.severity != "warning"]
-
-    selected: list[Insight] = warnings[:max_warnings]
-
     by_category: dict[str, list[Insight]] = {}
-
-    for insight in others:
+    for insight in ranked:
         by_category.setdefault(insight.category, []).append(insight)
 
-    quota = max(top_n - len(selected), 0)
-    taken_per_category: dict[str, int] = {key: 0 for key in by_category}
+    def best(category: str) -> Insight | None:
+        queue = by_category.get(category, [])
+        return queue[0] if queue else None
 
-    while quota > 0 and any(by_category.values()):
-        progressed = False
-
-        for category in sorted(by_category):
-            queue = by_category[category]
-
-            if not queue:
-                continue
-
-            if taken_per_category[category] >= max_per_category:
-                continue
-
-            selected.append(queue.pop(0))
-            taken_per_category[category] += 1
-            quota -= 1
-            progressed = True
-
-            if quota == 0:
-                break
-
-        if not progressed:
-            break
-
-    # Si el reparto estratificado no llenó los slots (pocos datos o
-    # una sola categoría dominante), se completa por score puro: el
-    # resumen nunca queda corto por culpa de la cuota.
-    if quota > 0:
-        leftovers = [
-            insight
-            for queue in by_category.values()
-            for insight in queue
-        ]
-        leftovers.sort(
-            key=lambda insight: (
-                _SEVERITY_WEIGHT.get(insight.severity, 1.0) * 100.0
-                + insight.score
-            ),
-            reverse=True,
-        )
-        selected.extend(leftovers[:quota])
-
-    # Solo si faltan slots se rellenan con warnings adicionales.
-    if len(selected) < top_n:
-        selected.extend(
-            warnings[max_warnings : top_n - len(selected) + max_warnings]
+    def phrase(
+        title: str,
+        message: str,
+        source: Insight | None = None,
+    ) -> Insight:
+        return Insight(
+            title=title,
+            message=message,
+            severity="info",
+            category="executive_summary",
+            columns=list(source.columns) if source is not None else [],
+            evidence={},
         )
 
-    selected_ids = {id(insight) for insight in selected}
+    def see(insight: Insight) -> str:
+        return f"{insight.message.rstrip('.')} (see: {insight.title[:72]})"
 
-    return sorted(
-        (insight for insight in ranked if id(insight) in selected_ids),
-        key=lambda insight: (
-            _SEVERITY_WEIGHT.get(insight.severity, 1.0) * 100.0 + insight.score
-        ),
-        reverse=True,
+    phrases: list[Insight] = []
+
+    # 1. Dataset + calidad principal.
+    shape = (
+        f"Dataset with {n_rows} rows × {n_columns} columns"
+        if n_rows is not None and n_columns is not None
+        else "Dataset"
     )
+    quality_warnings = [
+        insight
+        for insight in by_category.get("quality", [])
+        if insight.severity == "warning"
+    ]
+
+    if quality_warnings:
+        quality_msg = quality_warnings[0].message.rstrip(".")
+        dataset_msg = f"{shape}. Main quality signal: {quality_msg}."
+    else:
+        dataset_msg = f"{shape}. No quality warnings."
+
+    phrases.append(phrase("Executive summary — dataset", dataset_msg))
+
+    # 2-7. Una frase por familia de sustancia, en orden narrativo.
+    for category, title in (
+        ("relationship", "Executive summary — strongest relationship"),
+        ("distribution", "Executive summary — distribution"),
+        ("temporal", "Executive summary — temporal"),
+        ("ml_recommendations", "Executive summary — ML target"),
+        ("comparative", "Executive summary — comparative"),
+    ):
+        source = best(category)
+        if source is not None:
+            phrases.append(phrase(title, see(source), source))
+
+    # Patrón o inferencia comparten slot: son dos rutas al mismo
+    # hallazgo ("se separan" vs "con qué confianza").
+    pattern = best("pattern") or best("inference")
+    if pattern is not None:
+        phrases.append(
+            phrase("Executive summary — pattern", see(pattern), pattern),
+        )
+
+    return phrases[:top_n]

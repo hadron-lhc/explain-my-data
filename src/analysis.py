@@ -51,6 +51,7 @@ from src.inference import (
 )
 from src.insights import (
     Insight,
+    apply_insight_budget,
     generate_aggregation_insights,
     generate_distribution_insights,
     generate_executive_summary,
@@ -906,6 +907,35 @@ def analyze_dataset(
         heatmaps,
     )
 
+    # Presupuesto por familia (P4): recorta a INSIGHT_BUDGET_TOTAL
+    # antes de construir el resumen, para que el informe se lea como
+    # un resumen y no como un vertedero de tarjetas.
+    budgeted = apply_insight_budget(
+        {
+            "quality_insights": quality_insights,
+            "relationship_insights": relationship_insights,
+            "distribution_insights": distribution_insights,
+            "pattern_insights": pattern_insights,
+            "structure_insights": structure_insights,
+            "aggregation_insights": aggregation_insights,
+            "comparative_insights": comparative_insights,
+            "temporal_insights": temporal_insights,
+            "inference_insights": inference_insights,
+            "ml_insights": ml_insights,
+        }
+    )
+
+    quality_insights = budgeted.get("quality_insights", [])
+    relationship_insights = budgeted.get("relationship_insights", [])
+    distribution_insights = budgeted.get("distribution_insights", [])
+    pattern_insights = budgeted.get("pattern_insights", [])
+    structure_insights = budgeted.get("structure_insights", [])
+    aggregation_insights = budgeted.get("aggregation_insights", [])
+    comparative_insights = budgeted.get("comparative_insights", [])
+    temporal_insights = budgeted.get("temporal_insights", [])
+    inference_insights = budgeted.get("inference_insights", [])
+    ml_insights = budgeted.get("ml_insights", [])
+
     executive_summary = generate_executive_summary(
         quality_insights
         + relationship_insights
@@ -917,6 +947,8 @@ def analyze_dataset(
         + temporal_insights
         + inference_insights
         + ml_insights,
+        n_rows=profile.n_rows,
+        n_columns=profile.n_columns,
     )
 
     return AnalysisReport(

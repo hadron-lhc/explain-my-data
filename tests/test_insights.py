@@ -449,37 +449,211 @@ def test_insight_id_is_stable_and_distinct():
 # ---------------------------------------------------------------------------
 
 
-def test_executive_summary_prioritizes_warnings_and_high_scores():
+def test_executive_summary_is_narrative_by_family():
+    # El resumen narrativo (P4) selecciona por familia usando la
+    # `category` real de los insights (quality, relationship, …),
+    # una frase por familia, en orden narrativo.
     insights = [
-        Insight(title="info low", message="", severity="info", score=1.0),
-        Insight(title="warn mid", message="", severity="warning", score=10.0),
-        Insight(title="info high", message="", severity="info", score=50.0),
+        Insight(
+            title="warn",
+            message="Missing values in age",
+            severity="warning",
+            category="quality",
+            score=10.0,
+        ),
+        Insight(
+            title="rel",
+            message="age differs across income groups",
+            severity="info",
+            category="relationship",
+            score=5.0,
+        ),
+        Insight(
+            title="dist",
+            message="age is right-skewed",
+            severity="info",
+            category="distribution",
+            score=3.0,
+        ),
     ]
 
-    summary = generate_executive_summary(insights, top_n=2)
+    summary = generate_executive_summary(
+        insights,
+        n_rows=100,
+        n_columns=3,
+        top_n=8,
+    )
 
-    assert [insight.title for insight in summary] == ["warn mid", "info high"]
+    assert [insight.category for insight in summary] == [
+        "executive_summary",
+        "executive_summary",
+        "executive_summary",
+    ]
+    assert summary[0].message == (
+        "Dataset with 100 rows × 3 columns. "
+        "Main quality signal: Missing values in age."
+    )
+    assert "age differs across income groups" in summary[1].message
+    assert "(see: rel)" in summary[1].message
+    assert "age is right-skewed" in summary[2].message
+
+
+def test_executive_summary_without_warnings_reports_clean_dataset():
+    summary = generate_executive_summary(
+        [
+            Insight(
+                title="rel",
+                message="a ~ b correlated",
+                severity="info",
+                category="relationship",
+                score=5.0,
+            ),
+        ],
+        n_rows=10,
+        n_columns=2,
+    )
+
+    assert summary[0].message == "Dataset with 10 rows × 2 columns. No quality warnings."
 
 
 def test_executive_summary_respects_top_n():
+    # Cada familia aporta a lo sumo una frase; el tope se respeta.
     insights = [
-        Insight(title=f"insight {i}", message="", severity="info", score=float(i))
+        Insight(
+            title=f"insight {i}",
+            message=f"msg {i}",
+            severity="info",
+            category=f"family_{i}",
+            score=float(i),
+        )
         for i in range(20)
     ]
 
     summary = generate_executive_summary(insights, top_n=5)
 
-    assert len(summary) == 5
+    assert len(summary) <= 5
 
 
-def test_executive_summary_returns_all_when_fewer_insights():
+def test_executive_summary_returns_empty_when_no_insights():
+    summary = generate_executive_summary([], top_n=8)
+
+    assert summary == []
+
+
+def test_insight_budget_caps_family_at_quota():
+    from src.insights import apply_insight_budget
+
     insights = [
-        Insight(title="a", message="", severity="info", score=1.0),
+        Insight(
+            title=f"rel {i}",
+            message=f"msg {i}",
+            severity="info",
+            category="relationship_insights",
+            score=float(10 - i),
+        )
+        for i in range(15)
     ]
 
-    summary = generate_executive_summary(insights, top_n=8)
+    result = apply_insight_budget({"relationship_insights": insights})
 
-    assert len(summary) == 1
+    assert len(result["relationship_insights"]) == 12
+
+
+def test_insight_budget_keeps_shared_chart_id_insights():
+    # Regresión P4: varios insights pueden prometer el mismo chart
+    # (la serie temporal completa, el histograma de una columna) y
+    # cada uno es un hallazgo distinto. El corte es por score, nunca
+    # por chart compartido — la dedupe anterior eliminaba régimen,
+    # estacionalidad y extremos temporales (mismo chart de serie).
+    from src.insights import apply_insight_budget
+
+    insights = [
+        Insight(
+            title=title,
+            message=msg,
+            severity="info",
+            category="temporal_insights",
+            score=score,
+            chart_id="temporal:date:temp",
+        )
+        for title, msg, score in (
+            ("trend", "temp trends up", 21.8),
+            ("cycle", "temp shows a 7-day cycle", 5.6),
+            ("regime", "temp shifted around 2023-06-30", 8.1),
+        )
+    ]
+
+    result = apply_insight_budget({"temporal_insights": insights})
+
+    titles = {insight.title for insight in result["temporal_insights"]}
+    assert titles == {"trend", "cycle", "regime"}
+
+
+def test_insight_budget_caps_global_total():
+    from src.insights import apply_insight_budget
+
+    by_family = {
+        "relationship_insights": [
+            Insight(
+                title=f"rel {i}",
+                message=f"msg {i}",
+                severity="info",
+                category="relationship_insights",
+                score=float(10 - i),
+            )
+            for i in range(8)
+        ],
+        "distribution_insights": [
+            Insight(
+                title=f"dist {i}",
+                message=f"msg {i}",
+                severity="info",
+                category="distribution_insights",
+                score=float(10 - i),
+            )
+            for i in range(4)
+        ],
+    }
+
+    result = apply_insight_budget(by_family)
+
+    total = sum(len(v) for v in result.values())
+    assert total <= 40
+
+
+def test_insight_budget_prefers_quality_over_context():
+    from src.insights import apply_insight_budget
+
+    by_family = {
+        "quality_insights": [
+            Insight(
+                title=f"q {i}",
+                message=f"msg {i}",
+                severity="warning",
+                category="quality_insights",
+                score=float(10 - i),
+            )
+            for i in range(8)
+        ],
+        "aggregation_insights": [
+            Insight(
+                title=f"agg {i}",
+                message=f"msg {i}",
+                severity="info",
+                category="aggregation_insights",
+                score=float(100 - i),
+            )
+            for i in range(6)
+        ],
+    }
+
+    result = apply_insight_budget(by_family)
+
+    # La calidad se queda con su cupo completo; la de contexto
+    # (aggregation) se recorta antes que la de sustancia, pero con
+    # cupo suficiente para los need del corpus QA.
+    assert len(result["quality_insights"]) == 8
+    assert len(result["aggregation_insights"]) == 6
 
 
 # ---------------------------------------------------------------------------

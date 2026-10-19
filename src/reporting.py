@@ -215,6 +215,24 @@ def _insights_list(insights: list[Insight], empty_text: str) -> str:
     return "".join(_insight_html(insight) for insight in insights)
 
 
+def _executive_summary_paragraph(insights: list[Insight]) -> str:
+    """
+    Une las frases narrativas del resumen en un párrafo, cada una
+    precedida de su etiqueta (título corto) para que la filtración
+    por `hide_ids` siga siendo visible y verificable.
+    """
+    if not insights:
+        return '<p class="empty">No findings to summarize.</p>'
+
+    parts = [
+        f'<span class="exec-label">{_esc(insight.title)}</span> '
+        f"{_esc(insight.message)}"
+        for insight in insights
+    ]
+
+    return f'<p class="executive-narrative">{" ".join(parts)}</p>'
+
+
 def _chart_wrap(figure: go.Figure) -> str:
     return (
         f'<div class="chart">'
@@ -908,9 +926,8 @@ def render_html_report(
 
     generated_at = datetime.now(UTC).strftime("%Y-%m-%d %H:%M")
 
-    executive_compact = _insights_list(
+    executive_paragraph = _executive_summary_paragraph(
         report.executive_summary,
-        "No findings to summarize.",
     )
 
     insight_pages = _insight_pages(all_insights, figures, consumed)
@@ -973,7 +990,7 @@ def render_html_report(
 
 <section class="page">
 <h2>Executive summary</h2>
-{executive_compact}
+{executive_paragraph}
 </section>
 
 {insight_pages}

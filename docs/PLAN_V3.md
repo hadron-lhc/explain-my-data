@@ -108,7 +108,38 @@ Sobre titanic (93 insights), diamonds (68), adult (78):
   de inferencia. 8 tests nuevos en `tests/test_insights.py`, 3 en
   `tests/test_inference.py` (degradación, skip por coverage,
   `low_coverage`). 354 tests.
-- [ ] **P4 — Narrativa y presupuesto de insights**
+- [x] **P4 — Narrativa y presupuesto de insights** (2026-10-19):
+  presupuesto por familia (`INSIGHT_BUDGET_BY_FAMILY`, techos
+  derivados de la posición de score de los `need` más bajos del
+  corpus QA) + `INSIGHT_BUDGET_TOTAL=70` como guarda patológica
+  (ningún dataset del corpus lo alcanza: el corpus prueba que los
+  `need`/`claims` verificados — nulls comparativos con score 36-84,
+  patrones de grupo con score ~1.3, asociaciones cat-cat con
+  V<0.5 — viven diseminidos con scores bajos dentro de cada
+  familia; un recorte global agresivo por score los elimina a
+  todos). **Decisión**: el tope de UX lo fija el quota por familia,
+  no un cap global de 40. Dos bugs hallados y corregidos contra el
+  corpus: (1) la dedupe por `chart_id` en la fase 1 del presupuesto
+  borraba insights que comparten chart (la serie temporal completa
+  → régimen/estacionalidad/extremos; un histograma → skew +
+  outliers del mismo par); el corte es solo por score; (2) el
+  resumen narrativo buscaba familias por nombre de quota
+  (`relationship_insights`) en vez de la `category` real
+  (`relationship`) — en producción solo emitía la frase 1. Caps
+  por métrica en la familia comparativa
+  (`COMPARATIVE_RANK_PER_METRIC_MAX=2`,
+  `COMPARATIVE_DRIVER_PER_METRIC_MAX=1`,
+  `COMPARATIVE_CONSISTENCY_PER_METRIC_MAX=1`): sin ellos adult
+  emitía 4-5 tarjetas "quién lidera capital_gain" con score 100
+  que crowdsedaban a los nulls verificados. Resumen ejecutivo
+  narrativo: frase 1 "Dataset with N rows × M columns. Main
+  quality signal: …/No quality warnings." + una frase por familia
+  de sustancia con cross-ref `(see: <título fuente>)`, patrón e
+  inferencia comparten slot. Corpus: sin cambios de needs (100 ✓);
+  10 tests nuevos en `tests/test_insights.py` (budget,
+  chart compartido, frase dataset) y 3 en
+  `tests/test_comparative_insights.py` (caps por métrica). 362
+  tests.
 - [ ] **P5 — Tarjetas más ricas (detalle y cross-links)**
 - [x] **G1 — QA transversal: `noise:` a nivel info** (2026-10-16):
   `_evaluate_dataset` extiende el ruido a `severity=info`; un insight
@@ -116,11 +147,26 @@ Sobre titanic (93 insights), diamonds (68), adult (78):
   (`✗info`) y hace fallar `--strict` (los warnings siguen solo
   silenciándose). Precedencia need > noise. Los 15 `known/*.md`
   anclan sus `noise:` a títulos reales de warning (`... in`,
-  `duplicate rows detected`) para no cazar por subcadena las
+  `duplicate rows detected`) para no cazcar por subcadena las
   recomendaciones de limpieza de F5. Línea base tras G1: `✓94/94 ·
   ⊘2 · claims 56/56 · absent✗0 · ⚠0 · ℹ29 · ✗info0` sobre **550
   insights** / 15 datasets; verify **100% (375/375)**, **cobertura
   68.2%**; `check --strict` exit 0; 318 tests.
+
+Línea base tras P4 (16 datasets): `✓100/100 · ⊘2 · claims 59/59 ·
+absent✗0 · ⚠0 · ℹ28 · ✗info0`; verify **100% (330/330)**, cobertura
+**60.7%** (330/544); `check --strict` exit 0; **362 tests**, ruff
+limpio. Conteo comparable: **458 insights analíticos** (P3: 490 →
+−32 por caps por métrica + quotas) + **86 frases narrativas** del
+resumen ejecutivo (antes el harness deduplicaba las reimpresiones
+del top-8 a ~0 en el conteo; ahora cada frase es una tarjeta única
+con cross-ref, lo que hace crecer el denominador de cobertura —
+sobre analíticas puras la cobertura es 72.0%, estable vs P3's
+72.7%). titanic 56 analíticas (sin recorte: todas las familias
+dentro de quota; el tope de UX real para datasets grandes queda
+en ~55-60 tarjetas analíticas, documentado como límite del
+verbatim QA: romperlo elimina `need`s verificados). adult 68→60,
+diamonds 67→56.
 
 Línea base tras P2 (16 datasets con `dup_columns`): `✓100/100 · ⊘2 ·
 claims 59/59 · absent✗0 · ⚠0 · ℹ29 · ✗info0` sobre **521 insights**;
@@ -285,12 +331,18 @@ de tarjetas.
 
 **Alcance**:
 
-- **Presupuesto global**: `src/config.py` `INSIGHT_BUDGET_TOTAL=40`
-  (o por familia). Tras la curación (F2) y los folds (P1-P3), si el
-  total supera el presupuesto, recortar por prioridad:
-  calidad(warning) > relaciones más fuertes > distribuciones >
-  patrones > aggregation. Nunca recortar warnings de calidad salvo
-  duplicados.
+- **Presupuesto por familia** (ejecutado): `src/config.py`
+  `INSIGHT_BUDGET_BY_FAMILY` con techos por familia, derivados de
+  la posición de score de los `need` más bajos del corpus QA (p.ej.
+  adult: comparativo null en posición 9, patrón income>50K en 7,
+  asociación marital~income V=0.45 en ~9 de relationship). El cap
+  global `INSIGHT_BUDGET_TOTAL=40` del spec inicial se probó contra
+  el corpus y **no es alcanzable sin romper `need`s verificados**
+  (ver Estado: decisión documentada; el guard se sube a 70).
+- **Caps por métrica en la familia comparativa** (adicional al
+  spec, derivado del corpus): ranking ≤2, driver ≤1, consistencia
+  ≤1 por columna numérica — el spam de "quién lidera capital_gain"
+  crowdsedaba a los nulls verificados dentro del quota.
 - **Executive summary narrativo (determinista)**:
   - `src/insights.py` `generate_executive_summary`: en vez de
     top-N por score, construir 4-6 frases por template:
@@ -400,8 +452,12 @@ uv run --project ../explain-my-data python qa.py verify
 | P1 | −10 a −15 | tautologías + derivadas plegadas |
 | P2 | −5 a −8 | conteos/descartes triviales |
 | P3 | −5 a −8 | deck (missing) + separaciones marginales |
-| P4 | recorte a ≤40 total | presupuesto + narrativa |
+| P4 | 0 (56 analíticas; caps −8 en adult, −11 en diamonds) | quota por familia + caps por métrica; cap global de 40 descartado contra el corpus |
 | P5 | 0 (enriquece) | mensajes más ricos, no más tarjetas |
 
-Meta: titanic de 93 → ~30-40 tarjetas de calidad, con executive
-summary de 4-6 frases coherentes.
+Meta revisada contra el corpus: titanic queda en ~56 tarjetas
+analíticas — romper ese piso elimina `need`s verificados (nulls,
+asociaciones de V medio y patrones de score bajo están en el
+verbatim del corpus). El salto de UX de P4 es el executive summary
+narrativo (una frase por familia con cross-ref) y la eliminación
+del spam comparativo por métrica.

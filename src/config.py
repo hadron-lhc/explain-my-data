@@ -141,12 +141,38 @@ INSIGHT_CHARTS_MAX_EXTRA = 12
 
 # --- Insights ---------------------------------------------------------------
 
-# Cantidad de hallazgos del resumen ejecutivo.
-EXECUTIVE_SUMMARY_TOP_N = 8
+# Presupuesto global de insights por dataset (P4). Es una GUARD patológica:
+# con los quotas por familia de abajo ningún dataset del corpus QA lo
+# alcanza. El corpus prueba que los `need`/`claims` verificados viven
+# diseminidos por las familias con scores bajos (nulls comparativos,
+# patrones de grupos pequeños, asociaciones cat-cat con V<0.5): un
+# recorte global agresivo por score los elimina a todos. El tope real
+# de UX lo fija el quota por familia.
+INSIGHT_BUDGET_TOTAL = 70
 
-# Máximo de warnings de calidad en el resumen ejecutivo (el resto
-# se completa con el mejor score).
-EXECUTIVE_SUMMARY_MAX_WARNINGS = 2
+# Presupuesto por familia (P4). Cotas derivadas de la línea base del
+# corpus QA: cada familia debe conservar al menos la posición de score
+# de su `need` más bajo verificado (p.ej. adult: comparativo null en
+# posición 9, patrón income>50K en posición 7, asociación
+# marital~income con V=0.45 en la posición ~9 de relationship).
+# Corte por score dentro de la familia; nunca por chart compartido.
+INSIGHT_BUDGET_BY_FAMILY = {
+    "quality_insights": 8,
+    "relationship_insights": 12,
+    "inference_insights": 10,
+    "distribution_insights": 6,
+    "pattern_insights": 10,
+    "structure_insights": 4,
+    "temporal_insights": 8,
+    "ml_insights": 2,
+    "comparative_insights": 12,
+    "aggregation_insights": 6,
+}
+
+# Tamaño del resumen ejecutivo narrativo (P4): cuántas frases como
+# máximo. Cada frase es un insight (category="executive_summary") que
+# referencia su tarjeta fuente.
+EXECUTIVE_SUMMARY_TOP_N = 8
 
 # --- Insights comparativos --------------------------------------------------
 
@@ -209,17 +235,22 @@ COMPARATIVE_CONSISTENCY_MAX = 3
 COMPARATIVE_BALANCED_MAX = 3
 COMPARATIVE_NULL_MAX = 5
 
+# Caps por métrica (columna numérica) dentro de cada subfamilia
+# comparativa (P4). Sin ellos, una métrica concentrada (p.ej.
+# capital_gain en adult) genera un ranking/driver/consistencia por
+# cada columna categórica del dataset —4-5 tarjetas diciendo quién
+# lidera la misma métrica— y ese ruido crowdseda a los nulls
+# verificados del corpus QA dentro del quota por familia.
+COMPARATIVE_RANK_PER_METRIC_MAX = 2
+COMPARATIVE_DRIVER_PER_METRIC_MAX = 1
+COMPARATIVE_CONSISTENCY_PER_METRIC_MAX = 1
+
 # --- Curación de insights (un hallazgo = una tarjeta) ------------------------
 
 # Máximo de patrones "stands out" por par (grupo, numérico): los grupos
 # intermedios de un mismo par añaden página sin añadir hallazgo; quedan
 # los extremos más estandarizados.
 PATTERN_PER_PAIR_CAP = 2
-
-# Máximo de insights del resumen ejecutivo por categoría: el ranking
-# puro por score favorece familias con escalas grandes (comparativos)
-# y ahoga distribuciones/relaciones.
-EXECUTIVE_PER_CATEGORY_MAX = 3
 
 # --- Análisis temporal (F3) --------------------------------------------------
 

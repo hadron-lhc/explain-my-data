@@ -239,6 +239,77 @@ def test_driver_stays_quiet_when_nothing_standout():
 
 
 # ---------------------------------------------------------------------------
+# P4: caps por métrica (una métrica concentrada no genera una tarjeta
+# por cada columna categórica)
+# ---------------------------------------------------------------------------
+
+
+def _multi_category_df():
+    import numpy as np
+
+    rng = np.random.default_rng(0)
+    return pd.DataFrame(
+        {
+            "cat_a": ["x"] * 200 + ["y"] * 100,
+            "cat_b": ["p"] * 200 + ["q"] * 100,
+            "cat_c": ["m"] * 200 + ["n"] * 100,
+            "metric": np.concatenate(
+                [rng.normal(100, 5, 200), rng.normal(10, 5, 100)],
+            ),
+        }
+    )
+
+
+def test_ranking_caps_cards_per_metric():
+    df = _multi_category_df()
+    aggs = [_agg(df, cat, "metric") for cat in ("cat_a", "cat_b", "cat_c")]
+
+    insights = generate_ranking_insights(aggs)
+
+    metrics = [insight.columns[1] for insight in insights]
+    assert metrics.count("metric") <= 2
+
+
+def test_driver_caps_cards_per_metric():
+    df = pd.DataFrame(
+        {
+            "cat_a": ["x"] * 100 + ["y"] * 100 + ["z"] * 100,
+            "cat_b": ["p"] * 100 + ["q"] * 100 + ["r"] * 100,
+            "metric": [10.0] * 100 + [100.0] * 100 + [1000.0] * 100,
+        }
+    )
+    aggs = [_agg(df, cat, "metric") for cat in ("cat_a", "cat_b")]
+
+    insights = generate_driver_insights(aggs)
+
+    metrics = [insight.columns[1] for insight in insights]
+    assert metrics.count("metric") == 1
+
+
+def test_consistency_caps_cards_per_metric():
+    # Dos categorías producen "also leads in low" — el mismo hallazgo
+    # en la misma métrica: a lo sumo una tarjeta por métrica.
+    df = pd.DataFrame(
+        {
+            "cat_a": (["x"] * 30 + ["y"] * 30) * 2,
+            "cat_b": (["p"] * 30 + ["q"] * 30) * 2,
+            "high": [500.0] * 30 + [100.0] * 30 + [490.0] * 30 + [95.0] * 30,
+            "low": [50.0] * 30 + [10.0] * 30 + [48.0] * 30 + [9.0] * 30,
+        }
+    )
+    aggs = [
+        _agg(df, cat, metric)
+        for cat in ("cat_a", "cat_b")
+        for metric in ("high", "low")
+    ]
+
+    insights = generate_consistency_insights(aggs)
+
+    metrics = [insight.columns[1] for insight in insights]
+    assert len(metrics) == len(set(metrics))
+
+
+# ---------------------------------------------------------------------------
 # C. Consistencia entre métricas
 # ---------------------------------------------------------------------------
 
@@ -487,26 +558,32 @@ def test_full_report_includes_comparative_insights():
     report = analyze_dataset(df)
 
     assert report.comparative_insights
+    # P4: el resumen narrativo no reimprime objetos fuente; en su
+    # lugar referencia los mensajes de las familias fuente.
+    joined = " ".join(insight.message for insight in report.executive_summary)
     assert any(
-        insight in report.executive_summary
-        for insight in report.comparative_insights
+        source.message[:40] in joined for source in report.comparative_insights
     )
 
 
-def test_executive_summary_caps_quality_warnings():
+def test_executive_summary_is_narrative_not_ventero():
+    # P4: el resumen es narrativo (frases por familia), no un
+    # vertedero de las N tarjetas de mayor score.
     insights = [
         Insight(
             title=f"warning {i}",
-            message="",
+            message=f"quality issue {i}",
             severity="warning",
+            category="quality",
             score=10.0,
         )
         for i in range(6)
     ] + [
         Insight(
             title=f"comparative {i}",
-            message="",
+            message=f"comparative finding {i}",
             severity="info",
+            category="comparative",
             score=90.0 - i,
         )
         for i in range(6)
@@ -514,21 +591,44 @@ def test_executive_summary_caps_quality_warnings():
 
     summary = generate_executive_summary(insights, top_n=8)
 
-    warnings = [i for i in summary if i.severity == "warning"]
+    # Cada frase es un executive_summary; las familias fuente se
+    # referencian por mensaje, no se reimprimen como tarjetas.
+    assert all(i.category == "executive_summary" for i in summary)
+    assert len(summary) <= 8
 
-    assert len(summary) == 8
-    assert len(warnings) == 2
+    # La calidad se refleja en la frase de dataset.
+    assert any("quality issue" in i.message for i in summary)
 
 
-def test_executive_summary_backfills_with_warnings_when_needed():
+def test_executive_summary_references_source_messages():
     insights = [
-        Insight(title="w1", message="", severity="warning", score=10.0),
-        Insight(title="w2", message="", severity="warning", score=9.0),
-        Insight(title="w3", message="", severity="warning", score=8.0),
-        Insight(title="i1", message="", severity="info", score=95.0),
+        Insight(
+            title="w1",
+            message="Missing values in age",
+            severity="warning",
+            category="quality",
+            score=10.0,
+        ),
+        Insight(
+            title="r1",
+            message="age differs across income groups",
+            severity="info",
+            category="relationship",
+            score=5.0,
+        ),
+        Insight(
+            title="d1",
+            message="age is right-skewed",
+            severity="info",
+            category="distribution",
+            score=3.0,
+        ),
     ]
 
-    summary = generate_executive_summary(insights, top_n=5)
+    summary = generate_executive_summary(insights, top_n=8)
 
-    assert len(summary) == 4
-    assert sum(1 for i in summary if i.severity == "warning") == 3
+    joined = " ".join(i.message for i in summary)
+    assert "Missing values in age" in joined
+    assert "age differs across income groups" in joined
+    assert "age is right-skewed" in joined
+    assert "(see: r1)" in joined

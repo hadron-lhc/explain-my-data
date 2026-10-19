@@ -313,5 +313,9 @@ class TestIntegration:
     def test_ml_insights_in_executive_summary(self):
         df = pd.read_csv("../explain-my-data-qa/datasets/titanic.csv")
         report = _analyze(df)
-        exec_ml = [i for i in report.executive_summary if i.category == "ml_recommendations"]
+        exec_ml = [
+            i
+            for i in report.executive_summary
+            if i.category == "executive_summary" and "ML target" in i.title
+        ]
         assert len(exec_ml) >= 1
