@@ -3,7 +3,10 @@
 from src.curation import (
     cap_pattern_insights,
     curate_insights,
+    fold_derived_cards,
     fold_group_differs_insights,
+    fold_leader_cards,
+    fold_outlier_cards,
 )
 from src.insights import Insight
 
@@ -133,6 +136,17 @@ def test_fold_transfers_separation_to_primary_pattern():
     assert "group_separation" not in secondary.evidence
 
 
+def test_fold_promotes_primary_severity_from_relationship():
+    primary = _standout("p1", "x", "g", -4.0, 4.0)
+    primary.severity = "info"
+    differs = _differs("x", "g", 1.85, 5)
+
+    fold_group_differs_insights([differs], [primary])
+
+    assert primary.evidence["group_separation"] == 1.85
+    assert primary.severity == "warning"
+
+
 def test_fold_uses_highest_score_pattern_as_primary():
     weak = _standout("p1", "x", "g", 2.0, 2.0)
     strong = _standout("p2", "x", "g", -4.0, 4.0)
@@ -187,3 +201,131 @@ def test_curate_insights_end_to_end():
     assert relationships == [other_rel]
     assert [i.evidence["tag"] for i in curated_patterns] == ["p1", "p2"]
     assert curated_patterns[0].evidence["group_separation"] == 1.9
+
+
+# --- F4: folds de ruido ----------------------------------------------------
+
+
+def _outlier_card(column: str, count: int, most_extreme: float) -> Insight:
+    return Insight(
+        title=f"{column} contains {count} IQR outliers",
+        message=(
+            f"{column} has {count} values outside the IQR range; "
+            f"Most extreme value: {most_extreme:.2f}."
+        ),
+        severity="info",
+        category="pattern",
+        columns=[column],
+        score=float(count),
+        evidence={
+            "outlier_count": count,
+            "n_observations": 100,
+            "outlier_percentage": float(count),
+            "lower_bound": 0.0,
+            "upper_bound": 10.0,
+            "most_extreme": most_extreme,
+        },
+    )
+
+
+def test_fold_outlier_cards_merges_and_preserves_extremes():
+    cards = [
+        _outlier_card("wt", 3, 5.42),
+        _outlier_card("carb", 1, 8.0),
+        _outlier_card("qsec", 2, 22.9),
+    ]
+
+    folded = fold_outlier_cards(cards)
+
+    assert len(folded) == 1
+    message = folded[0].message
+    assert "most extreme value: 5.42" in message
+    assert "most extreme value: 8.00" in message
+    assert "most extreme value: 22.90" in message
+    assert folded[0].columns == ["wt", "carb", "qsec"]
+    assert folded[0].evidence["folded_outlier_columns"] == 3
+
+
+def test_fold_outlier_cards_keeps_single_card():
+    card = _outlier_card("dist", 1, 120.0)
+
+    folded = fold_outlier_cards([card])
+
+    assert folded == [card]
+
+
+def test_fold_leader_cards_merges_also_leads():
+    primary = Insight(
+        title="Dinner accounts for the highest total total_bill",
+        message="Dinner totals 4,000.",
+        severity="info",
+        category="comparative",
+        columns=["time", "total_bill"],
+        score=10.0,
+    )
+    secondary = Insight(
+        title="Dinner also leads in tip",
+        message="Dinner tips 546.07, 2.9x Lunch.",
+        severity="info",
+        category="comparative",
+        columns=["time", "tip"],
+        score=8.0,
+    )
+    orphan = Insight(
+        title="Lunch also leads in size",
+        message="Lunch size.",
+        severity="info",
+        category="comparative",
+        columns=["time", "size"],
+        score=2.0,
+    )
+
+    folded = fold_leader_cards([primary, secondary, orphan])
+
+    assert primary in folded
+    assert secondary not in folded
+    assert orphan in folded
+    assert "Dinner also leads in tip." in primary.message
+    assert "546.07" in primary.message
+    assert primary.columns == ["time", "total_bill", "tip"]
+
+
+def test_fold_derived_cards_merges_and_keeps_equivalence():
+    derived = [
+        Insight(
+            title="adult_male looks derived from other columns",
+            message="adult_male appears to be derived from sex, age.",
+            severity="info",
+            category="structure",
+            columns=["adult_male", "sex", "age"],
+        ),
+        Insight(
+            title="who looks derived from other columns",
+            message="who appears to be derived from sex, age.",
+            severity="info",
+            category="structure",
+            columns=["who", "sex", "age"],
+        ),
+    ]
+    equivalence = Insight(
+        title="Redundant columns carry the same information",
+        message="education_num encodes education.",
+        severity="info",
+        category="structure",
+        columns=["education", "education_num"],
+    )
+
+    folded = fold_derived_cards(derived + [equivalence])
+
+    assert equivalence in folded
+    assert len(
+        [i for i in folded if "derived from other columns" in i.title]
+    ) == 1
+    merged = next(
+        i for i in folded if "derived from other columns" in i.title
+    )
+    assert "adult_male appears to be derived from sex, age" in merged.message
+    assert "who appears to be derived from sex, age" in merged.message
+    assert "adult_male" in merged.evidence["derived_columns"]
+    assert "who" in merged.evidence["derived_columns"]
+    assert merged.score == 2.0

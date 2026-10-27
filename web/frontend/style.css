@@ -1116,6 +1116,20 @@ td code {
     0 0 0 1px rgba(245, 158, 11, 0.18);
 }
 
+.insight-key-line .insight-card-header {
+  margin-bottom: 0;
+}
+
+.insight-key-link {
+  color: #92400e;
+  text-decoration: none;
+}
+
+.insight-key-link:hover,
+.insight-key-link:focus-visible {
+  text-decoration: underline;
+}
+
 .insight-card-header {
   display: flex;
   flex-direction: column;

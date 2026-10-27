@@ -29,10 +29,12 @@ from src.config import (
     CROSSLINK_MAX_PER_CARD,
     CROSSLINK_MIN_STRENGTH,
     EXECUTIVE_SUMMARY_TOP_N,
+    IMPORTANCE_TARGET_BONUS,
     INSIGHT_BUDGET_BY_FAMILY,
     INSIGHT_BUDGET_TOTAL,
     MIN_GROUP_SEPARATION,
     MIN_RELATIVE_DIFF,
+    NULL_INSIGHTS_MAX,
     RELATIONSHIP_MAX_MISSING_PCT,
     RELATIONSHIP_MIN_GROUP_N,
 )
@@ -113,6 +115,13 @@ class Insight:
     score: float = 0.0
     caveats: list[str] = field(default_factory=list)
     id: str = ""
+    # Importancia global 0-100 (F2): anotada por compute_importance
+    # tras los folds; la usan el presupuesto global (F3) y el
+    # ranking del resumen ejecutivo (F4).
+    importance: float = 0.0
+    # Tarjeta fuente de una frase del resumen ejecutivo (F4): la UI
+    # la usa para enlazar al hallazgo en vez de reimprimir su texto.
+    source_id: str | None = None
 
     def __post_init__(self) -> None:
         # Identificador determinista y corto para poder ocultar/restaurar
@@ -824,6 +833,7 @@ def _group_difference_insight(
         score *= 0.5
 
     evidence: dict[str, float | int | str] = {
+        "group_value": pattern.group_value,
         "group_mean": pattern.group_mean,
         "overall_mean": pattern.overall_mean,
         "difference": pattern.difference,
@@ -1181,65 +1191,114 @@ def generate_quality_insights(
 _SEVERITY_WEIGHT = {"warning": 2.0, "info": 1.0}
 
 
+# Marcas de título de los hallazgos nulos (F3): verificaciones de
+# ausencia ("no hay relación", "casi idéntico", "sin dominante").
+# Solo el título: los mensajes de tarjetas sustantivas citan estos
+# frases al referenciar caveats y no deben contarse como nulos.
+_NULL_TITLE_MARKERS = (
+    "appear independent",
+    "is nearly identical across",
+    "no meaningful association",
+    "shows no dominant value",
+    "driven by group sizes rather than",
+)
+
+
+def _is_null_insight(insight: Insight) -> bool:
+    title = insight.title.lower()
+    return any(marker in title for marker in _NULL_TITLE_MARKERS)
+
+
 def apply_insight_budget(
     by_family: dict[str, list[Insight]],
 ) -> dict[str, list[Insight]]:
     """
-    Presupuesto por familia (P4): recorta cada familia a su cupo,
-    conservando los mejores por score dentro de la familia.
+    Presupuesto de insights (F3/F4, "menos pero mejores"): tres
+    fases, todas ordenadas por importancia global (F2) con desempate
+    determinista por título e id.
 
-    Fase 1: por familia, los `quota[family]` mejores por score. No
-    hay dedupe por `chart_id`: varios insights pueden prometer el
-    mismo chart (la serie temporal completa, el histograma de una
-    columna) y cada uno es un hallazgo distinto — el corte es
-    siempre por score, nunca por chart compartido.
+    1. Cap de nulos primero (NULL_INSIGHTS_MAX): los nulos se
+       reservan del pool COMPLETO, no de lo que sobrevive a las
+       cuotas. Así un nulo verificado no queda fuera porque su
+       familia tenga cupo lleno de tarjetas más ruidosas. Los
+       nulos reservados cuentan para el tope global.
+    2. Techo por familia (INSIGHT_BUDGET_BY_FAMILY): diversidad
+       garantizada antes del corte global — sin cuotas, el top-N
+       ahogaría el informe con las familias de peso alto.
+    3. Top-N global (INSIGHT_BUDGET_TOTAL): el resto de los cupos
+       se llena con las tarjetas de mayor importancia; los nulos
+       reservados se reinsertan al final y el informe tiene como
+       máximo ese número de tarjetas. Sin dedupe por chart_id:
+       varios insights pueden prometer el mismo chart (serie
+       temporal, histograma) y cada uno es un hallazgo distinto.
 
-    Fase 2: si el total supera `INSIGHT_BUDGET_TOTAL` (guarda
-    patológica; con los quotas actuales ningún dataset del corpus
-    QA lo alcanza), se recorta por prioridad de familia: contexto
-    primero (aggregation, comparative), sustancia después,
-    calidad nunca.
+    Los datasets con menos tarjetas que el tope pasan sin recorte.
     """
-    quotas = INSIGHT_BUDGET_BY_FAMILY
+    def order_key(insight: Insight) -> tuple[float, str, str]:
+        return (-insight.importance, insight.title, insight.id)
 
-    def priority(family: str) -> int:
-        return _FAMILY_PRIORITY.get(family, len(_FAMILY_PRIORITY))
+    family_of = {
+        id(insight): family
+        for family, insights in by_family.items()
+        for insight in insights
+    }
 
-    budget_total = INSIGHT_BUDGET_TOTAL
-    kept_total = 0
+    # Fase 1: reservar los nulos de mayor importancia del pool
+    # completo (aunque su familia luego los habría recortado).
+    all_nulls = [
+        insight
+        for insights in by_family.values()
+        for insight in insights
+        if _is_null_insight(insight)
+    ]
+    nulls = sorted(all_nulls, key=order_key)[:NULL_INSIGHTS_MAX]
+    null_ids = {id(insight) for insight in nulls}
+    # El resto de los nulos no entra a las cuotas: ya fue descartado
+    # por el cap (no debe competir por cupos como si fuera sustancia).
+    excluded_null_ids = {id(insight) for insight in all_nulls} - null_ids
+
+    # Fase 2: techo por familia sobre los no-nulos.
     result: dict[str, list[Insight]] = {}
 
     for family, insights in by_family.items():
-        quota = quotas.get(family, 0)
-        ordered = sorted(
-            insights,
-            key=lambda insight: insight.score,
-            reverse=True,
-        )
-        result[family] = ordered[:quota]
-        kept_total += len(result[family])
+        quota = INSIGHT_BUDGET_BY_FAMILY.get(family, 0)
+        result[family] = sorted(
+            (
+                insight
+                for insight in insights
+                if id(insight) not in null_ids
+                and id(insight) not in excluded_null_ids
+            ),
+            key=order_key,
+        )[:quota]
 
-    # Fase 2: guarda patológica. Recorta empezando por la familia
-    # de menor prioridad (contexto primero), y dentro de cada
-    # familia por el peor score.
-    if kept_total > budget_total:
-        for family in sorted(
-            (key for key in result if result[key]),
-            key=lambda name: (-priority(name), name),
-            reverse=True,
-        ):
-            queue = result[family]
-            overflow = kept_total - budget_total
+    # Fase 3: top-N global de no-nulos, reservando el cupo de los
+    # nulos ya elegidos.
+    kept = [insight for items in result.values() for insight in items]
+    budget_for_others = max(0, INSIGHT_BUDGET_TOTAL - len(nulls))
 
-            if overflow <= 0:
-                break
+    if len(kept) > budget_for_others:
+        keep_ids = {
+            id(insight)
+            for insight in sorted(kept, key=order_key)[:budget_for_others]
+        }
 
-            queue.sort(key=lambda insight: insight.score)
-            drop = min(overflow, len(queue))
-            result[family] = queue[drop:]
-            kept_total -= drop
+        for family, items in result.items():
+            result[family] = [
+                insight for insight in items if id(insight) in keep_ids
+            ]
 
-    return {family: insights for family, insights in result.items() if insights}
+    # Reinsertar nulos en su familia y ordenar cada lista por
+    # importancia para que el orden sea determinista.
+    for null in nulls:
+        family = family_of[id(null)]
+        result.setdefault(family, []).append(null)
+
+    return {
+        family: sorted(items, key=order_key)
+        for family, items in result.items()
+        if items
+    }
 
 
 def _short_title(insight: Insight) -> str:
@@ -1315,18 +1374,100 @@ def apply_cross_links(insights: list[Insight]) -> list[Insight]:
     return insights
 
 
-_FAMILY_PRIORITY = {
-    "quality_insights": 0,
-    "relationship_insights": 1,
-    "inference_insights": 2,
-    "distribution_insights": 3,
-    "pattern_insights": 4,
-    "structure_insights": 5,
-    "temporal_insights": 6,
-    "ml_insights": 7,
-    "comparative_insights": 8,
-    "aggregation_insights": 9,
+# --- Importancia global (F2) -----------------------------------------------
+
+# Peso de la familia (0-1): sustancia del hallazgo, no su fuerza
+# (la fuerza la aporta el percentil dentro de la familia). Asociación
+# e inferencia son el hallazgo principal; comparativos y agregaciones
+# son contexto.
+_FAMILY_IMPORTANCE = {
+    "relationship": 1.0,
+    "inference": 1.0,
+    "quality": 0.95,
+    "distribution": 0.85,
+    "pattern": 0.85,
+    "temporal": 0.85,
+    "ml_recommendations": 0.75,
+    "structure": 0.7,
+    "comparative": 0.6,
+    "aggregation": 0.55,
 }
+_DEFAULT_FAMILY_IMPORTANCE = 0.6
+
+IMPORTANCE_FAMILY_WEIGHT = 0.45
+IMPORTANCE_RANK_WEIGHT = 0.35
+IMPORTANCE_SEVERITY_WEIGHT = 0.20
+
+
+def compute_importance(
+    insights: list[Insight],
+    *,
+    target_columns: set[str] | None = None,
+) -> None:
+    """
+    F2: anota cada insight con una importancia global 0-100.
+
+    `importance = 100 · (0.45·familia + 0.35·percentil + 0.20·severidad)`
+
+    - familia: peso fijo de la categoría (sustancia del hallazgo);
+    - percentil: posición del `score` DENTRO de su categoría
+      (escala relativa: η²·100 de inferencia y separación 1.5 de
+      relationship no son comparables en crudo);
+    - severidad: warning pesa el doble que info (mismo factor que
+      _SEVERITY_WEIGHT, normalizado a 1.0).
+
+    F4: si se pasa `target_columns`, los hallazgos que tocan el
+    target detectado reciben `IMPORTANCE_TARGET_BONUS` (capped a
+    100): el usuario quiere entender lo que va a predecir, no solo
+    la estructura general.
+
+    Determinista: percentiles con desempate por título; idéntica
+    entrada → idéntica salida. Se llama después de los folds y antes
+    del presupuesto (F3) y del resumen ejecutivo (F4).
+    """
+    by_category: dict[str, list[Insight]] = {}
+
+    for insight in insights:
+        by_category.setdefault(insight.category, []).append(insight)
+
+    for category, group in by_category.items():
+        family_weight = _FAMILY_IMPORTANCE.get(
+            category,
+            _DEFAULT_FAMILY_IMPORTANCE,
+        )
+        ordered = sorted(group, key=lambda item: (item.score, item.title))
+        n = len(ordered)
+
+        # Percentil con promedio para empates de score: dos tarjetas
+        # con la misma fuerza empatan en ranking y la severidad (y el
+        # título como último desempate) decide el orden final.
+        start = 0
+
+        while start < n:
+            end = start
+
+            while end + 1 < n and ordered[end + 1].score == ordered[start].score:
+                end += 1
+
+            percentile = ((start + end) / 2) / (n - 1) if n > 1 else 1.0
+
+            for position in range(start, end + 1):
+                insight = ordered[position]
+                severity_weight = _SEVERITY_WEIGHT.get(insight.severity, 1.0) / 2.0
+                importance = 100.0 * (
+                    IMPORTANCE_FAMILY_WEIGHT * family_weight
+                    + IMPORTANCE_RANK_WEIGHT * percentile
+                    + IMPORTANCE_SEVERITY_WEIGHT * severity_weight
+                )
+
+                if target_columns and any(
+                    column in target_columns for column in insight.columns
+                ):
+                    importance += IMPORTANCE_TARGET_BONUS
+
+                insight.importance = round(min(100.0, importance), 2)
+
+            start = end + 1
 
 
 def generate_executive_summary(
@@ -1347,15 +1488,12 @@ def generate_executive_summary(
     (`relationship`, `quality`, …), no por el nombre de familia del
     presupuesto (`relationship_insights`, …).
     """
-    if not insights:
+    if not insights or top_n <= 0:
         return []
 
     ranked = sorted(
         insights,
-        key=lambda insight: (
-            _SEVERITY_WEIGHT.get(insight.severity, 1.0) * 100.0 + insight.score
-        ),
-        reverse=True,
+        key=lambda insight: (-insight.importance, insight.title, insight.id),
     )
 
     by_category: dict[str, list[Insight]] = {}
@@ -1378,6 +1516,7 @@ def generate_executive_summary(
             category="executive_summary",
             columns=list(source.columns) if source is not None else [],
             evidence={},
+            source_id=source.id if source is not None else None,
         )
 
     def see(insight: Insight) -> str:
@@ -1405,24 +1544,55 @@ def generate_executive_summary(
 
     phrases.append(phrase("Executive summary — dataset", dataset_msg))
 
-    # 2-7. Una frase por familia de sustancia, en orden narrativo.
-    for category, title in (
-        ("relationship", "Executive summary — strongest relationship"),
-        ("distribution", "Executive summary — distribution"),
-        ("temporal", "Executive summary — temporal"),
-        ("ml_recommendations", "Executive summary — ML target"),
-        ("comparative", "Executive summary — comparative"),
+    # 2-7. Una frase por familia de sustancia. La selección se hace
+    # por importancia de la fuente (F4); el orden de presentación
+    # sigue siendo narrativo para que el resumen se lea como una
+    # historia y no como un ranking.
+    family_phrases: list[tuple[int, float, Insight]] = []
+
+    for order, (category, title) in enumerate(
+        (
+            ("relationship", "Executive summary — strongest relationship"),
+            ("distribution", "Executive summary — distribution"),
+            ("temporal", "Executive summary — temporal"),
+            ("ml_recommendations", "Executive summary — ML target"),
+            ("comparative", "Executive summary — comparative"),
+        )
     ):
         source = best(category)
         if source is not None:
-            phrases.append(phrase(title, see(source), source))
+            family_phrases.append(
+                (order, source.importance, phrase(title, see(source), source)),
+            )
 
     # Patrón o inferencia comparten slot: son dos rutas al mismo
-    # hallazgo ("se separan" vs "con qué confianza").
-    pattern = best("pattern") or best("inference")
-    if pattern is not None:
-        phrases.append(
-            phrase("Executive summary — pattern", see(pattern), pattern),
+    # hallazgo ("se separan" vs "con qué confianza"). Gana la fuente
+    # de mayor importancia.
+    pattern_candidates = [
+        source
+        for source in (best("pattern"), best("inference"))
+        if source is not None
+    ]
+    pattern = (
+        max(
+            pattern_candidates,
+            key=lambda source: (source.importance, source.title),
         )
+        if pattern_candidates
+        else None
+    )
+
+    if pattern is not None:
+        family_phrases.append(
+            (5, pattern.importance, phrase("Executive summary — pattern", see(pattern), pattern)),
+        )
+
+    chosen = sorted(
+        family_phrases,
+        key=lambda item: (-item[1], item[2].title),
+    )[: max(0, top_n - 1)]
+    chosen.sort(key=lambda item: item[0])
+
+    phrases.extend(item[2] for item in chosen)
 
     return phrases[:top_n]

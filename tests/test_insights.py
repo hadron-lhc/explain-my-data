@@ -1,7 +1,9 @@
 
 from src.aggregations import CategoricalNumericAggregation, GroupAggregation
+from src.config import IMPORTANCE_TARGET_BONUS
 from src.insights import (
     Insight,
+    compute_importance,
     generate_aggregation_insights,
     generate_executive_summary,
     generate_pattern_insights,
@@ -540,6 +542,70 @@ def test_executive_summary_returns_empty_when_no_insights():
     assert summary == []
 
 
+def test_executive_summary_uses_importance_and_links_source():
+    strong = Insight(
+        title="strong rel",
+        message="the strong relationship",
+        severity="info",
+        category="relationship",
+        importance=90.0,
+    )
+    weak = Insight(
+        title="weak rel",
+        message="the weak relationship",
+        severity="info",
+        category="relationship",
+        importance=10.0,
+    )
+
+    summary = generate_executive_summary([weak, strong], top_n=8)
+
+    assert summary[0].source_id is None
+    assert "the strong relationship" in summary[1].message
+    assert summary[1].source_id == strong.id
+
+
+def test_executive_summary_selects_top_families_by_importance():
+    insights = [
+        Insight(
+            title="rel",
+            message="rel msg",
+            severity="info",
+            category="relationship",
+            importance=10.0,
+        ),
+        Insight(
+            title="dist",
+            message="dist msg",
+            severity="info",
+            category="distribution",
+            importance=90.0,
+        ),
+        Insight(
+            title="cmp",
+            message="cmp msg",
+            severity="info",
+            category="comparative",
+            importance=50.0,
+        ),
+        Insight(
+            title="ml",
+            message="ml msg",
+            severity="info",
+            category="ml_recommendations",
+            importance=80.0,
+        ),
+    ]
+
+    summary = generate_executive_summary(insights, top_n=3)
+
+    assert [insight.title for insight in summary] == [
+        "Executive summary — dataset",
+        "Executive summary — distribution",
+        "Executive summary — ML target",
+    ]
+
+
 def test_insight_budget_caps_family_at_quota():
     from src.insights import apply_insight_budget
 
@@ -556,7 +622,7 @@ def test_insight_budget_caps_family_at_quota():
 
     result = apply_insight_budget({"relationship_insights": insights})
 
-    assert len(result["relationship_insights"]) == 12
+    assert len(result["relationship_insights"]) == 8
 
 
 def test_insight_budget_keeps_shared_chart_id_insights():
@@ -592,33 +658,114 @@ def test_insight_budget_keeps_shared_chart_id_insights():
 def test_insight_budget_caps_global_total():
     from src.insights import apply_insight_budget
 
+    # Cuotas por familia suman > INSIGHT_BUDGET_TOTAL: el tope
+    # global es quien decide.
     by_family = {
+        "quality_insights": [
+            Insight(
+                title=f"q {i}",
+                message="msg",
+                severity="warning",
+                category="quality",
+                score=float(10 - i),
+            )
+            for i in range(6)
+        ],
         "relationship_insights": [
             Insight(
                 title=f"rel {i}",
-                message=f"msg {i}",
+                message="msg",
                 severity="info",
-                category="relationship_insights",
+                category="relationship",
                 score=float(10 - i),
             )
             for i in range(8)
         ],
-        "distribution_insights": [
+        "inference_insights": [
             Insight(
-                title=f"dist {i}",
-                message=f"msg {i}",
+                title=f"inf {i}",
+                message="msg",
                 severity="info",
-                category="distribution_insights",
+                category="inference",
+                score=float(10 - i),
+            )
+            for i in range(6)
+        ],
+        "comparative_insights": [
+            Insight(
+                title=f"cmp {i}",
+                message="msg",
+                severity="info",
+                category="comparative",
+                score=float(10 - i),
+            )
+            for i in range(6)
+        ],
+        "pattern_insights": [
+            Insight(
+                title=f"pat {i}",
+                message="msg",
+                severity="info",
+                category="pattern",
+                score=float(10 - i),
+            )
+            for i in range(6)
+        ],
+        "aggregation_insights": [
+            Insight(
+                title=f"agg {i}",
+                message="msg",
+                severity="info",
+                category="aggregation",
                 score=float(10 - i),
             )
             for i in range(4)
         ],
     }
 
+    # Sin tope global serían 36 tarjetas post-cuotas.
     result = apply_insight_budget(by_family)
 
-    total = sum(len(v) for v in result.values())
-    assert total <= 40
+    total = sum(len(items) for items in result.values())
+    assert total == 27
+
+
+def test_insight_budget_caps_nulls_at_two():
+    from src.insights import apply_insight_budget, compute_importance
+
+    nulls = [
+        Insight(
+            title=f"col {i} and other appear independent",
+            message="msg",
+            severity="info",
+            category="comparative",
+            score=float(i),
+        )
+        for i in range(4)
+    ]
+    leader = Insight(
+        title="leader accounts for the highest total x",
+        message="msg",
+        severity="info",
+        category="comparative",
+        score=1.0,
+    )
+    insights = nulls + [leader]
+
+    compute_importance(insights)
+    result = apply_insight_budget({"comparative_insights": insights})
+    kept = result["comparative_insights"]
+
+    kept_nulls = [
+        item for item in kept if "appear independent" in item.title
+    ]
+    assert len(kept_nulls) == 2
+    # Los dos nulos de mayor importancia (score más alto) sobreviven.
+    assert {item.title for item in kept_nulls} == {
+        "col 3 and other appear independent",
+        "col 2 and other appear independent",
+    }
+    assert leader in kept
 
 
 def test_insight_budget_prefers_quality_over_context():
@@ -649,11 +796,82 @@ def test_insight_budget_prefers_quality_over_context():
 
     result = apply_insight_budget(by_family)
 
-    # La calidad se queda con su cupo completo; la de contexto
-    # (aggregation) se recorta antes que la de sustancia, pero con
-    # cupo suficiente para los need del corpus QA.
-    assert len(result["quality_insights"]) == 8
-    assert len(result["aggregation_insights"]) == 6
+    # El piso de diversidad da más cupo a calidad (6) que a
+    # contexto/agregaciones (4); el tope global (27) no aplica
+    # con tan pocas tarjetas.
+    assert len(result["quality_insights"]) == 6
+    assert len(result["aggregation_insights"]) == 4
+
+
+def test_insight_budget_reserves_nulls_before_family_quota():
+    from src.insights import apply_insight_budget, compute_importance
+
+    # La familia comparative tiene más no-nulos que su cupo (6),
+    # todos con más score que el único nulo. Aun así el nulo debe
+    # reservarse antes de la cuota y sobrevivir.
+    non_nulls = [
+        Insight(
+            title=f"cmp {i}",
+            message="msg",
+            severity="info",
+            category="comparative",
+            score=float(100 - i),
+        )
+        for i in range(8)
+    ]
+    null = Insight(
+        title="a and b appear independent",
+        message="msg",
+        severity="info",
+        category="comparative",
+        score=0.0,
+    )
+
+    compute_importance(non_nulls + [null])
+    result = apply_insight_budget({"comparative_insights": non_nulls + [null]})
+    kept = result["comparative_insights"]
+
+    assert null in kept
+    assert len([item for item in kept if "appear independent" in item.title]) == 1
+    # 6 no-nulos del cupo + 1 nulo reservado.
+    assert len(kept) == 7
+
+
+def test_insight_budget_excludes_extra_nulls_from_quotas():
+    from src.insights import apply_insight_budget, compute_importance
+
+    non_nulls = [
+        Insight(
+            title=f"cmp {i}",
+            message="msg",
+            severity="info",
+            category="comparative",
+            score=float(100 - i),
+        )
+        for i in range(8)
+    ]
+    nulls = [
+        Insight(
+            title=f"col {i} and other appear independent",
+            message="msg",
+            severity="info",
+            category="comparative",
+            score=float(i),
+        )
+        for i in range(4)
+    ]
+
+    compute_importance(non_nulls + nulls)
+    result = apply_insight_budget({"comparative_insights": non_nulls + nulls})
+    kept = result["comparative_insights"]
+    kept_nulls = [item for item in kept if "appear independent" in item.title]
+
+    assert len(kept_nulls) == 2
+    assert {item.title for item in kept_nulls} == {
+        "col 3 and other appear independent",
+        "col 2 and other appear independent",
+    }
+    assert len(kept) == 8
 
 
 # ---------------------------------------------------------------------------
@@ -785,3 +1003,173 @@ def test_pattern_insight_full_coverage_by_default():
     insights = generate_pattern_insights([pattern], outliers)
 
     assert len(insights) == 1
+
+
+# --- compute_importance (F2) -----------------------------------------------
+
+
+def test_compute_importance_annotates_all_in_range():
+    insights = [
+        Insight(
+            title=f"rel {i}",
+            message="msg",
+            severity="info",
+            category="relationship",
+            score=float(i),
+        )
+        for i in range(5)
+    ] + [
+        Insight(
+            title="dup",
+            message="msg",
+            severity="warning",
+            category="quality",
+            score=1.0,
+        ),
+    ]
+
+    compute_importance(insights)
+
+    assert all(0.0 <= insight.importance <= 100.0 for insight in insights)
+    assert all(insight.importance > 0.0 for insight in insights)
+
+
+def test_compute_importance_ranks_score_within_category():
+    insights = [
+        Insight(
+            title=f"rel {i}",
+            message="msg",
+            severity="info",
+            category="relationship",
+            score=float(i),
+        )
+        for i in range(4)
+    ]
+
+    compute_importance(insights)
+    ordered = sorted(insights, key=lambda item: item.score)
+
+    assert ordered[0].importance < ordered[1].importance
+    assert ordered[1].importance < ordered[2].importance
+    assert ordered[2].importance < ordered[3].importance
+
+
+def test_compute_importance_warning_outranks_info_at_same_score():
+    warning = Insight(
+        title="a warning",
+        message="msg",
+        severity="warning",
+        category="quality",
+        score=1.0,
+    )
+    info = Insight(
+        title="b info",
+        message="msg",
+        severity="info",
+        category="quality",
+        score=1.0,
+    )
+
+    compute_importance([warning, info])
+
+    assert warning.importance > info.importance
+
+
+def test_compute_importance_family_weight_beats_percentile():
+    # Una relación (familia 1.0) en el peor percentil debe pesar más
+    # que un agregado (0.55) en el mejor.
+    worst_relationship = Insight(
+        title="worst rel",
+        message="msg",
+        severity="info",
+        category="relationship",
+        score=0.0,
+    )
+    best_aggregation = Insight(
+        title="best agg",
+        message="msg",
+        severity="info",
+        category="aggregation",
+        score=100.0,
+    )
+
+    compute_importance([worst_relationship, best_aggregation])
+
+    assert worst_relationship.importance > best_aggregation.importance
+
+
+def test_compute_importance_deterministic_under_input_order():
+    insights = [
+        Insight(
+            title=f"t {i}",
+            message="msg",
+            severity="info",
+            category="pattern",
+            score=float(i % 3),
+        )
+        for i in range(6)
+    ]
+
+    compute_importance(insights)
+    first = {insight.title: insight.importance for insight in insights}
+
+    compute_importance(list(reversed(insights)))
+    second = {insight.title: insight.importance for insight in insights}
+
+    assert first == second
+
+
+def test_compute_importance_target_bonus():
+    target_card = Insight(
+        title="target relation",
+        message="msg",
+        severity="info",
+        category="relationship",
+        columns=["income"],
+        score=1.0,
+    )
+    other_card = Insight(
+        title="other relation",
+        message="msg",
+        severity="info",
+        category="relationship",
+        columns=["age"],
+        score=1.0,
+    )
+
+    compute_importance(
+        [target_card, other_card],
+        target_columns={"income"},
+    )
+
+    assert target_card.importance - other_card.importance == IMPORTANCE_TARGET_BONUS
+
+
+def test_compute_importance_target_bonus_caps_at_100():
+    target_card = Insight(
+        title="target warning",
+        message="msg",
+        severity="warning",
+        category="relationship",
+        columns=["income"],
+        score=1.0,
+    )
+
+    compute_importance([target_card], target_columns={"income"})
+
+    assert target_card.importance == 100.0
+
+
+def test_compute_importance_ignores_target_bonus_without_match():
+    card = Insight(
+        title="other relation",
+        message="msg",
+        severity="info",
+        category="relationship",
+        columns=["age"],
+        score=1.0,
+    )
+
+    compute_importance([card], target_columns={"income"})
+
+    assert card.importance == 90.0

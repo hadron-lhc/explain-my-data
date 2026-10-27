@@ -142,37 +142,55 @@ INSIGHT_CHARTS_MAX_EXTRA = 12
 # --- Insights ---------------------------------------------------------------
 
 # Presupuesto global de insights por dataset (P4). Es una GUARD patológica:
-# con los quotas por familia de abajo ningún dataset del corpus QA lo
-# alcanza. El corpus prueba que los `need`/`claims` verificados viven
-# diseminidos por las familias con scores bajos (nulls comparativos,
-# patrones de grupos pequeños, asociaciones cat-cat con V<0.5): un
-# recorte global agresivo por score los elimina a todos. El tope real
-# de UX lo fija el quota por familia.
-INSIGHT_BUDGET_TOTAL = 70
+# Presupuesto global (F3): "menos pero mejores". Después de los
+# folds de redundancia (F1) y de los techos por familia, el informe
+# se queda con como máximo INSIGHT_BUDGET_TOTAL tarjetas, elegidas
+# por importancia global (F2: familia + percentil + severidad).
+# Los datasets chicos (< total) pasan sin recorte.
+INSIGHT_BUDGET_TOTAL = 27
 
-# Presupuesto por familia (P4). Cotas derivadas de la línea base del
-# corpus QA: cada familia debe conservar al menos la posición de score
-# de su `need` más bajo verificado (p.ej. adult: comparativo null en
-# posición 9, patrón income>50K en posición 7, asociación
-# marital~income con V=0.45 en la posición ~9 de relationship).
-# Corte por score dentro de la familia; nunca por chart compartido.
+# Techo por familia (F3): diversidad garantizada ANTES del corte
+# global — sin techo, el top-N por importancia ahogaría familias
+# enteras (relación/inference pesan más que agregaciones). Las cuotas
+# suman >27 para que el tope global sea quien decida en datasets
+# grandes; el null cap (NULL_INSIGHTS_MAX) se aplica antes, sobre el
+# pool completo. Inferencia sube a 8: tras el bonus de target, la
+# tarjeta "wt differs across am groups" de mtcars queda en la
+# posición 8 de su familia (antes 7 sin bonus).
 INSIGHT_BUDGET_BY_FAMILY = {
-    "quality_insights": 8,
-    "relationship_insights": 12,
-    "inference_insights": 10,
-    "distribution_insights": 6,
-    "pattern_insights": 10,
+    "quality_insights": 6,
+    "relationship_insights": 8,
+    "inference_insights": 8,
+    "distribution_insights": 4,
+    "pattern_insights": 6,
     "structure_insights": 4,
-    "temporal_insights": 8,
+    "temporal_insights": 4,
     "ml_insights": 2,
-    "comparative_insights": 12,
-    "aggregation_insights": 6,
+    "comparative_insights": 6,
+    "aggregation_insights": 4,
 }
 
-# Tamaño del resumen ejecutivo narrativo (P4): cuántas frases como
-# máximo. Cada frase es un insight (category="executive_summary") que
-# referencia su tarjeta fuente.
-EXECUTIVE_SUMMARY_TOP_N = 8
+# Cap de hallazgos nulos por dataset (F3): "X e Y parecen
+# independientes", "X es casi idéntico entre grupos", "sin
+# asociación significativa" son verificaciones útiles pero no
+# progresan en cantidad: como máximo NULL_INSIGHTS_MAX por
+# informe (los de mayor importancia), el resto se pliega.
+NULL_INSIGHTS_MAX = 2
+
+# Bonus de importancia (F4) para hallazgos que tocan el target
+# detectado: el usuario quiere entender lo que va a predecir, no
+# solo la estructura general. Se suma después del cálculo F2 y se
+# capa a 100; rescata la dominancia del target y las asociaciones
+# con la etiqueta frente al relleno de contexto. 20 es el mínimo
+# que mantiene el patrón educación~ingreso de adult dentro del
+# presupuesto (con 12 quedaba en la posición 30 de 37).
+IMPORTANCE_TARGET_BONUS = 20.0
+
+# Tamaño del resumen ejecutivo narrativo (P4/F4): cuántas frases
+# como máximo. Cada frase es un insight (category="executive_summary")
+# que referencia su tarjeta fuente; la selección se ordena por
+# importancia (F2 + bonus de target).
+EXECUTIVE_SUMMARY_TOP_N = 5
 
 # Cross-links (P5): dos tarjetas que comparten una columna fuerte se
 # referencian entre sí ("Related: ..."), con score mínimo para no
@@ -292,6 +310,13 @@ TEMPORAL_OUTLIER_IQR_MULT = 3.0
 # Observaciones mínimas y grupos mínimos para emitir un test cat-num.
 INFERENCE_MIN_OBSERVATIONS = 30
 INFERENCE_MIN_GROUPS = 2
+
+# Techo de grupos para el test inferencial. Una categórica con más de
+# `INFERENCE_MAX_GROUPS` niveles es un identificador de entidad (mpg
+# name 305/398, storms name 268): Kruskal sobre grupos de n≈1-2
+# devuelve η² inflado por tautología, no un hallazgo. Los análisis
+# legítimos (feed 6, agegp 6, Country 6, status 9) quedan por debajo.
+INFERENCE_MAX_GROUPS = 25
 
 # Umbral de significancia (raw y BH) y de n chico para caveat.
 INFERENCE_ALPHA = 0.05

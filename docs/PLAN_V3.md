@@ -230,6 +230,36 @@ Sobre titanic (93 insights), diamonds (68), adult (78):
   insights** / 15 datasets; verify **100% (375/375)**, **cobertura
   68.2%**; `check --strict` exit 0; 318 tests.
 
+- [x] **F0–F5 — Recorte "menos pero mejores"** (2026-10-21):
+  corpus QA ampliado a **35 datasets** (F0) y tres fases de
+  plegado/presupuesto sobre los outputs reales:
+  - **F1**: una relación cat-num = una tarjeta (la inferencia es la
+    primaria; "differs across" y "stands out" del mismo par se
+    pliegan en su mensaje), y una cola = una tarjeta por columna
+    (skew > IQR > extreme) en `src/curation.py`.
+  - **F2/F3**: `importance` global 0-100 (familia + percentil del
+    score + severidad) anotada tras los folds; presupuesto por
+    familia y global.
+  - **F3.5**: presupuesto global **27** con **null-first** (los 2
+    mejores nulos se reservan antes de las cuotas, los nulos extra
+    no consumen cupo); cupo de inferencia **8**; bonus de target
+    **+20** (rescata el patrón educación~ingreso de adult; con +12
+    quedaba 30/37 y el claim 11.60 matcheaba la tarjeta de ML).
+  - **F4**: folds de ruido (`IQR outliers across N numeric
+    columns` conserva conteos/extremos, "also leads" se pliega en
+    el líder, derivadas en una tarjeta con score = nº de columnas);
+    resumen ejecutivo rankeado por importancia con `source_id`; la
+    SPA lo renderiza como índice compacto enlazado a la tarjeta,
+    sin duplicar el mensaje.
+  - **F5**: 6 recortes documentados en `known/` (artefactos de
+    conteo y nulos 3º+) y baseline QA recalibrada.
+  Cierre: **618 insights** (437 analíticos + 156 frases de resumen
+  + 25 limpieza), **máx. 27 analíticos/dataset**, `check --strict`
+  exit 0, **verify 100% (281/281)**, cobertura 45.5%, **404 tests**,
+  ruff limpio. Follow-up **F6**: fold de correlaciones casi
+  duplicadas (diamonds x/y/z) para que `price cut`/`price color`
+  compitan sin el punto ciego del `ML target`.
+
 Línea base tras P4 (16 datasets): `✓100/100 · ⊘2 · claims 59/59 ·
 absent✗0 · ⚠0 · ℹ28 · ✗info0`; verify **100% (330/330)**, cobertura
 **60.7%** (330/544); `check --strict` exit 0; **362 tests**, ruff

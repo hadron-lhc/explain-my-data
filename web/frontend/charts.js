@@ -564,6 +564,10 @@ function appendInsightCard(parent, report, insight, options) {
 
   const card = document.createElement("div");
 
+  if (insight.id) {
+    card.id = `insight-${insight.id}`;
+  }
+
   const severity = insight.severity ?? "info";
 
   card.className =
@@ -652,6 +656,66 @@ function appendInsightCard(parent, report, insight, options) {
 
       renderRelationshipVisualization(chartContainer, visualization);
     }
+  }
+
+  return card;
+}
+
+function appendKeyInsightLine(parent, insight, sourceById, options = {}) {
+  const { onHide = null } = options;
+
+  const source = insight.source_id
+    ? sourceById.get(insight.source_id)
+    : null;
+
+  const card = document.createElement("div");
+
+  card.className = "insight-card insight-key insight-key-line";
+
+  const dismiss = onHide
+    ? `<button
+         type="button"
+         class="insight-dismiss"
+         title="Hide this summary line"
+         aria-label="Hide this summary line"
+       >&times;</button>`
+    : "";
+
+  const titleHtml = source
+    ? `<a class="insight-key-link" href="#insight-${escapeHtml(source.id)}">${escapeHtml(source.title)}</a>`
+    : escapeHtml(insight.title ?? "");
+
+  const bodyHtml = source
+    ? ""
+    : `<div class="insight-card-body">
+         <div class="insight-card-text">
+           <p>${escapeHtml(insight.message ?? "")}</p>
+         </div>
+       </div>`;
+
+  card.innerHTML = `
+    <div class="insight-card-header">
+      ${dismiss}
+
+      <div class="insight-badges">
+        <span class="key-badge">★ Key</span>
+      </div>
+
+      <strong class="insight-card-title">${titleHtml}</strong>
+    </div>
+
+    ${bodyHtml}
+  `;
+
+  parent.appendChild(card);
+
+  if (onHide) {
+    const dismissButton = card.querySelector(".insight-dismiss");
+
+    dismissButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      onHide(insight.id);
+    });
   }
 
   return card;
@@ -752,12 +816,21 @@ export function renderInsightsSection(report, container, options = {}) {
       true,
     );
 
+    // F4: el resumen ejecutivo es un índice, no una segunda copia
+    // de las tarjetas. Si la fuente está visible, se enlaza a ella
+    // (sin reimprimir el mensaje); si pertenece a una familia que
+    // la SPA no renderiza (inference/temporal/ml), se muestra la
+    // frase compacta una sola vez.
+    const sourceById = new Map(
+      all.map((insight) => [insight.id, insight]),
+    );
+
     for (const insight of executive) {
-      appendInsightCard(group, report, insight, {
-        key: true,
-        consumed,
-        onHide,
-      });
+      if (insight.source_id && hiddenIds.has(insight.source_id)) {
+        continue;
+      }
+
+      appendKeyInsightLine(group, insight, sourceById, { onHide });
     }
   }
 

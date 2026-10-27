@@ -28,6 +28,7 @@ from src.config import (
     INFERENCE_BH_ENABLED,
     INFERENCE_D_NEGLIGIBLE,
     INFERENCE_ETA2_NEGLIGIBLE,
+    INFERENCE_MAX_GROUPS,
     INFERENCE_MAX_TESTS,
     INFERENCE_MIN_GROUPS,
     INFERENCE_MIN_OBSERVATIONS,
@@ -257,6 +258,11 @@ def infer_categorical_numeric(
     }
 
     if len(grouped) < INFERENCE_MIN_GROUPS:
+        return None
+
+    # Categórica de demasiados niveles = identificador de entidad
+    # (mpg name, storms name): el test sería una tautología.
+    if len(grouped) > INFERENCE_MAX_GROUPS:
         return None
 
     arrays = list(grouped.values())

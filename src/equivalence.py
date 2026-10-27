@@ -578,6 +578,215 @@ def _detect_derived(
     return derived
 
 
+_BOOLEAN_LIKE_KEYS: dict[str, float] = {
+    "true": 1.0,
+    "false": 0.0,
+    "yes": 1.0,
+    "no": 0.0,
+    "0": 0.0,
+    "1": 1.0,
+}
+
+
+def _boolean_target(series: pd.Series) -> np.ndarray | None:
+    """
+    Serie booleana (o preparada como categórica "true"/"false") a
+    array 0.0/1.0 con NaN donde falte. None si no es interpretable
+    como booleana.
+    """
+    lowered = series.astype("string").str.strip().str.lower()
+    non_null = lowered.dropna()
+    unmapped = non_null[~non_null.isin(_BOOLEAN_LIKE_KEYS)]
+
+    if not unmapped.empty:
+        numeric = pd.to_numeric(series, errors="coerce")
+        values = {float(value) for value in numeric.dropna().unique()}
+
+        if not values or not values <= {0.0, 1.0}:
+            return None
+
+        return numeric.to_numpy(dtype=float)
+
+    return lowered.map(_BOOLEAN_LIKE_KEYS).to_numpy(dtype=float)
+
+
+def _fits_threshold(target: np.ndarray, values: np.ndarray, op: str) -> bool:
+    """
+    True si `target` (bool) es exactamente {values < t} (op="lt") o
+    {values >= t} (op="ge") para algún t. Sin tolerancia: la
+    derivación debe reproducirse fila por fila.
+    """
+    if not target.any() or target.all():
+        return True
+
+    positive = values[target]
+    negative = values[~target]
+
+    if op == "lt":
+        return bool(positive.max() < negative.min())
+
+    return bool(negative.max() < positive.min())
+
+
+def _minimal_cover(values: np.ndarray, target: np.ndarray, op: str) -> np.ndarray:
+    """
+    Menor subconjunto {values < t} / {values >= t} que contiene a
+    `target`: si una cobertura mayor funcionaba, la mínima también
+    (los que sobran se filtran con el segundo umbral).
+    """
+    if op == "lt":
+        return values <= values[target].max()
+
+    return values >= values[target].min()
+
+
+def _detect_boolean_derived(
+    profiles: dict[str, str],
+    prepared: dict[str, pd.Series],
+    equivalence_columns: set[str],
+) -> list[DerivedColumn]:
+    """
+    F1: una booleana que es EXACTAMENTE una función de umbrales sobre
+    una o dos numéricas (p.ej. has_debt = income<50k & debt>0,
+    alone = sibsp==0 & parch==0) es columna derivada: sus insights se
+    pliegan en las fuentes y solo queda la tarjeta de derivación.
+    """
+    numerics = sorted(
+        name
+        for name, role in profiles.items()
+        if role == "numeric" and name in prepared
+    )
+    booleans = sorted(
+        name
+        for name, role in profiles.items()
+        if (
+            role == "boolean"
+            and name in prepared
+            and name not in equivalence_columns
+        )
+    )
+
+    if len(numerics) < 1:
+        return []
+
+    derived: list[DerivedColumn] = []
+
+    for column in booleans:
+        target_full = _boolean_target(prepared[column])
+
+        if target_full is None:
+            continue
+
+        # --- un solo umbral ------------------------------------------
+        found: tuple[str, str, str] | None = None
+
+        for numeric_name in numerics:
+            values_full = pd.to_numeric(
+                prepared[numeric_name],
+                errors="coerce",
+            ).to_numpy(dtype=float)
+
+            mask = ~np.isnan(target_full) & ~np.isnan(values_full)
+
+            if int(mask.sum()) < DERIVED_MIN_ROWS:
+                continue
+
+            target = target_full[mask] == 1.0
+            values = values_full[mask]
+
+            if target.all() or not target.any():
+                continue
+
+            for op in ("lt", "ge"):
+                if _fits_threshold(target, values, op):
+                    found = (numeric_name, "", op)
+                    break
+
+            if found is not None:
+                break
+
+        # --- dos umbrales (combinación exacta) ------------------------
+        if found is None and len(numerics) >= 2:
+            for first_name in numerics:
+                if found is not None:
+                    break
+
+                first_full = pd.to_numeric(
+                    prepared[first_name],
+                    errors="coerce",
+                ).to_numpy(dtype=float)
+
+                for second_name in numerics:
+                    if second_name == first_name or found is not None:
+                        continue
+
+                    second_full = pd.to_numeric(
+                        prepared[second_name],
+                        errors="coerce",
+                    ).to_numpy(dtype=float)
+
+                    mask = (
+                        ~np.isnan(target_full)
+                        & ~np.isnan(first_full)
+                        & ~np.isnan(second_full)
+                    )
+
+                    if int(mask.sum()) < DERIVED_MIN_ROWS:
+                        continue
+
+                    target = target_full[mask] == 1.0
+                    first = first_full[mask]
+                    second = second_full[mask]
+
+                    if target.all() or not target.any():
+                        continue
+
+                    for op_first in ("lt", "ge"):
+                        cover = _minimal_cover(first, target, op_first)
+
+                        if not cover.any() or cover.all():
+                            continue
+
+                        for op_second in ("lt", "ge"):
+                            if _fits_threshold(target[cover], second[cover], op_second):
+                                found = (
+                                    first_name,
+                                    second_name,
+                                    f"{op_first}|{op_second}",
+                                )
+                                break
+
+                        if found is not None:
+                            break
+
+        if found is None:
+            continue
+
+        first_name, second_name, ops = found
+
+        if not second_name:
+            evidence = f"it equals a threshold on {first_name} for every row"
+        else:
+            op_first, op_second = ops.split("|")
+            evidence = (
+                f"it equals the combination of a {op_first} threshold on "
+                f"{first_name} and a {op_second} threshold on "
+                f"{second_name} for every row"
+            )
+
+        derived.append(
+            DerivedColumn(
+                column=column,
+                derived_from=(first_name,)
+                if not second_name
+                else (first_name, second_name),
+                evidence=evidence,
+            )
+        )
+
+    return derived
+
+
 def detect_equivalences(
     profiles: dict[str, str],
     prepared_columns: dict[str, pd.Series],
@@ -613,6 +822,13 @@ def detect_equivalences(
         prepared_columns,
         cat_cat,
         already_equivalent,
+    )
+    derived.extend(
+        _detect_boolean_derived(
+            profiles,
+            prepared_columns,
+            already_equivalent,
+        )
     )
 
     relations = cat_cat_relations + num_num_relations + cat_num_relations

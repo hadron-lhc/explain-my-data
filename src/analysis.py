@@ -32,7 +32,14 @@ from src.config import (
     SCATTER_MAX_POINTS,
     SCATTER_NO_SAMPLING_MAX,
 )
-from src.curation import curate_insights
+from src.curation import (
+    curate_insights,
+    fold_derived_cards,
+    fold_inference_redundancy,
+    fold_leader_cards,
+    fold_outlier_cards,
+    fold_tail_insights,
+)
 from src.distributions import (
     NumericDistribution,
     calculate_numeric_distributions,
@@ -53,6 +60,7 @@ from src.insights import (
     Insight,
     apply_cross_links,
     apply_insight_budget,
+    compute_importance,
     generate_aggregation_insights,
     generate_distribution_insights,
     generate_executive_summary,
@@ -743,6 +751,7 @@ def analyze_dataset(
     comparative_insights = filter_insights(comparative_insights, equivalence_map)
     distribution_insights = filter_insights(distribution_insights, equivalence_map)
     temporal_insights = filter_insights(temporal_insights, equivalence_map)
+    quality_insights = filter_insights(quality_insights, equivalence_map)
 
     # ---------------------------------------------------------
     # 7b. INFERENCIA (significancia + tamaño de efecto, cat-num)
@@ -752,6 +761,28 @@ def analyze_dataset(
     inference_insights = filter_insights(
         generate_inference_insights(inference_tests),
         equivalence_map,
+    )
+
+    # F1: una relación cat-num = una tarjeta. La tarjeta de
+    # inferencia (p, η², grupo tope) es la primaria del par; las
+    # "differs across" (relationship) y "stands out" (pattern) del
+    # mismo par se pliegan en ella (src/curation.py).
+    relationship_insights, pattern_insights, inference_insights = (
+        fold_inference_redundancy(
+            relationship_insights,
+            pattern_insights,
+            inference_insights,
+        )
+    )
+
+    # F1: una cola = una tarjeta por columna (skew > IQR outliers >
+    # extreme), con la evidencia fusionada en la primaria.
+    quality_insights, pattern_insights, distribution_insights = (
+        fold_tail_insights(
+            quality_insights,
+            pattern_insights,
+            distribution_insights,
+        )
     )
 
     # ---------------------------------------------------------
@@ -891,6 +922,15 @@ def analyze_dataset(
             if heatmap is not None:
                 heatmaps.append(heatmap)
 
+    # F4: plegado del ruido de conteo/derivadas — una tarjeta por
+    # familia de ruido en vez de una por columna. Se aplica antes de
+    # los charts y del presupuesto para que el cupo liberado vaya a
+    # hallazgos sustantivos y no se construyan charts de tarjetas
+    # que luego se pliegan.
+    pattern_insights = fold_outlier_cards(pattern_insights)
+    comparative_insights = fold_leader_cards(comparative_insights)
+    structure_insights = fold_derived_cards(structure_insights)
+
     # ---------------------------------------------------------
     # 9. CHARTS FOR INSIGHTS
     # ---------------------------------------------------------
@@ -906,6 +946,29 @@ def analyze_dataset(
         scatter_plots,
         bar_plots,
         heatmaps,
+    )
+
+    # Importancia global 0-100 (F2), anotada tras los folds y antes
+    # del presupuesto y del resumen ejecutivo. F4: los hallazgos que
+    # tocan el target detectado reciben un bonus.
+    target_columns = (
+        {ml_recommendation.target}
+        if ml_recommendation is not None and ml_recommendation.target
+        else None
+    )
+
+    compute_importance(
+        quality_insights
+        + relationship_insights
+        + distribution_insights
+        + pattern_insights
+        + structure_insights
+        + aggregation_insights
+        + comparative_insights
+        + temporal_insights
+        + inference_insights
+        + ml_insights,
+        target_columns=target_columns,
     )
 
     # Presupuesto por familia (P4): recorta a INSIGHT_BUDGET_TOTAL

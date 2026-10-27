@@ -226,7 +226,9 @@ def test_null_insight_chart_ids_resolve_to_plots():
     comparative = report.comparative_insights
 
     # Hallazgos nulos: el par queda fuera de la selección, pero el
-    # gráfico que el insight promete se construye on-demand.
+    # gráfico que el insight promete se construye on-demand antes
+    # del presupuesto. Con el cap F3 (NULL_INSIGHTS_MAX=2) solo los
+    # dos nulos de mayor importancia sobreviven como tarjeta.
     assert any(
         insight.chart_id == "catnum:group:value" for insight in comparative
     )
@@ -235,9 +237,17 @@ def test_null_insight_chart_ids_resolve_to_plots():
         for plot in report.bar_plots
     )
 
-    assert any(
-        insight.chart_id == "scatter:x:y" for insight in comparative
-    )
+    nulls = [
+        insight
+        for insight in comparative
+        if "nearly identical" in insight.title
+        or "no meaningful association" in insight.title
+        or "appear independent" in insight.title
+    ]
+    assert len(nulls) <= 2
+
+    # El scatter on-demand se construyó para el null num-num x~y
+    # aunque su tarjeta no sobreviviera al cap de nulos.
     assert any(
         {plot.column_x, plot.column_y} == {"x", "y"}
         for plot in report.scatter_plots
@@ -287,4 +297,6 @@ def test_null_insight_chart_ids_resolve_to_plots():
 
         assert resolved, f"unresolved chart_id: {insight.chart_id}"
 
-    assert checked >= 5
+    # El presupuesto F3 recorta a ~30 tarjetas: este dataset chico
+    # sobrevive con pocas, pero todas las emitidas resuelven.
+    assert checked >= 3
