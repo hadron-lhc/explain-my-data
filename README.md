@@ -1,53 +1,40 @@
 # Explain My Data
 
-Mini-analizador de datasets CSV: detecta patrones, genera insights y
-gráficas automáticamente. **Sin ML ni LLM** — todo el análisis es
-estadístico y las conclusiones salen de plantillas deterministas.
-Cero tokens, cero costos.
+**Live demo:** <https://explainmydata.help>
 
-## Qué hace
+A lightweight CSV dataset analyzer that automatically detects patterns, generates insights, and creates visualizations. **No ML or LLMs** — all analysis is statistical, and conclusions are generated from deterministic templates.
 
-Dado un CSV, el pipeline:
+Zero tokens, zero cost.
 
-1. **Perfila** el dataset (roles de columna: numérico, categórico,
-   booleano, fecha, identificador).
-2. **Detecta problemas de calidad**: faltantes, duplicados, valores
-   inválidos, outliers (IQR), conversiones de tipo fallidas.
-3. **Analiza relaciones**: num↔num (Pearson/Spearman), cat↔num
-   (separación de grupos) y cat↔cat (chi-cuadrado + Cramér's V).
-4. **Describe distribuciones**: histograma (Freedman-Diaconis),
-   asimetría, curtosis, concentración del top 5%, modalidad.
-5. **Encuentra patrones**: grupos con medias muy distintas (≥1σ),
-   outliers por columna, columnas constantes, agregados dominantes.
-6. **Redacta insights** en inglés con evidencia numérica (R² en
-   correlaciones, ratio extremos y n por grupo en diferencias de
-   grupo, cinco números en asimetrías, combos destacados en
-   asociaciones categóricas, cross-links "Related:" entre tarjetas
-   que comparten una columna fuerte) y un resumen ejecutivo
-   narrativo (frase de contexto con dimensiones del dataset + una
-   frase por familia con cross-ref a la tarjeta fuente), con
-   presupuesto por familia para que el informe se lea como un
-   resumen y no como un vertedero de tarjetas.
-7. **Insights comparativos** (reglas puras): ranking de grupo por
-   total con contraste volumen/valor, deconposición de drivers
-   (¿mueve el volumen o el valor?), consistencia entre métricas
-   ("el mismo grupo lidera dos medidas"), distribuciones categóricas
-   sin valor dominante, y hallazgos nulos (binarias casi iguales,
-   correlaciones débiles, pares independientes) con los números
-   exactos en el mensaje.
-8. **Grafica** automáticamente: scatter con línea de tendencia, barras
-   ordenadas, boxplots (muestreados), histogramas y heatmaps de
-   contingencia.
+## What It Does
 
-## Instalación
+Given a CSV file, the pipeline:
 
-Requiere [uv](https://docs.astral.sh/uv/) y Python 3.12.
+1. **Profiles the dataset** — identifies column roles: numeric, categorical, boolean, date, and identifier.
+
+2. **Detects data quality issues** — missing values, duplicates, invalid values, outliers (IQR), and failed type conversions.
+
+3. **Analyzes relationships** — numeric ↔ numeric (Pearson/Spearman), categorical ↔ numeric (group separation), and categorical ↔ categorical (chi-squared + Cramér's V).
+
+4. **Describes distributions** — histograms (Freedman–Diaconis), skewness, kurtosis, top-5% concentration, and modality.
+
+5. **Finds patterns** — groups with substantially different means (≥1σ), column-level outliers, constant columns, and dominant aggregates.
+
+6. **Generates insights** in English, backed by numerical evidence: R² for correlations; extreme-value ratios and sample sizes for group differences; five-number summaries for skewed distributions; prominent combinations for categorical associations; and "Related:" cross-links between insight cards that share a strong relationship. It also produces a **narrative executive summary**, with dataset context and one statement per insight family, referencing the corresponding insight cards. A per-family budget keeps the report focused rather than turning it into an overwhelming collection of cards.
+
+7. **Generates comparative insights using explicit rules**, including group rankings by total with volume-versus-value comparisons, driver decomposition (does volume or value explain the result?), consistency across metrics ("the same group leads on two measures"), categorical distributions without a dominant value, and null findings (nearly identical binary proportions, weak correlations, and independent pairs), with exact numerical evidence in each message.
+
+8. **Automatically generates visualizations** — scatter plots with trend lines, sorted bar charts, sampled box plots, histograms, and contingency heatmaps.
+
+## Installation
+
+Requires [uv](https://docs.astral.sh/uv/) and Python 3.12.
 
 ```bash
 uv sync
 ```
 
-## Uso
+## Usage
 
 ### CLI
 
@@ -55,143 +42,123 @@ uv sync
 uv run python -m src.analyze data/messy_sales.csv
 ```
 
-Imprime el perfil, calidad, estadísticas, distribuciones, relaciones,
-candidatos de análisis, insights y el resumen ejecutivo.
+Prints the dataset profile, quality report, descriptive statistics, distributions, relationships, analysis candidates, insights, and executive summary.
 
-### API + Web UI
+### API and Web UI
 
 ```bash
 uv run uvicorn web.backend.main:app --port 8000
 ```
 
-El backend sirve la SPA en el mismo origen: abrí
-`http://localhost:8000` (sin pasos extra). Endpoints: `POST /analyze`,
-`POST /clean` (preview JSON con limpieza; `?format=csv` devuelve el
-dataset limpio como descarga), `POST /report` (informe HTML
-autocontenido y listo para imprimir; con `?hide=id1,id2` excluye
-insights que el usuario ocultó en la UI y con
-`?hide_charts=histogram:col,bar:a:b` excluye charts de
-"Additional charts"), `GET /health`.
+The backend serves the single-page application from the same origin. Open `http://localhost:8000` — no additional setup required.
 
-El límite de upload es 20MB (`EMD_MAX_UPLOAD_BYTES` lo cambia); los
-CSVs de trabajo esperados son <5MB.
+Available endpoints:
 
-El informe `/report` está pensado para **print-to-PDF**: cada sección
-es una página (portada, overview, calidad, patterns, resumen ejecutivo,
-un insight por página con sus gráficos, apéndice técnico), con CSS de
-`@media print` y auto-impresión al abrirlo con el hash `#print`.
+- `POST /analyze` — analyzes an uploaded dataset.
+- `POST /clean` — returns a JSON preview of the cleaned dataset. Use `?format=csv` to download the cleaned dataset as a CSV file.
+- `POST /report` — generates a self-contained HTML report ready for printing. Use `?hide=id1,id2` to exclude insights hidden in the UI, or `?hide_charts=histogram:col,bar:a:b` to exclude charts from "Additional charts".
+- `GET /health` — health check.
 
-La UI es una SPA estática en `web/frontend/` (Plotly por CDN) que usa
-same-origin por defecto (funciona servida por el backend). Para
-desarrollo con la SPA en otro puerto:
+The upload limit is 20 MB and can be changed with `EMD_MAX_UPLOAD_BYTES`. Typical working CSV files are expected to be under 5 MB.
+
+The `/report` endpoint is designed for **print-to-PDF**. Each section occupies a separate page: cover, overview, data quality, patterns, executive summary, one insight per page with its charts, and a technical appendix. It uses `@media print` CSS and automatically opens the print dialog when loaded with the `#print` hash.
+
+The UI is a static single-page application in `web/frontend/`, using Plotly via CDN. It defaults to same-origin requests and works when served by the backend.
+
+To develop with the frontend on a separate port:
 
 ```bash
 python -m http.server 5500 --directory web/frontend
 ```
 
-y abrí `http://localhost:5500` (ese puerto dispara la config de dev
-hacia `http://127.0.0.1:8000`, ver el script en `index.html`). La
-carga es un dropzone grande con
-drag & drop del CSV o click para abrir el explorador (al soltar o
-seleccionar el archivo empieza el análisis solo). El flujo de la UI es:
-overview (KPIs + perfil de columnas) → calidad → limpieza (drawer con
-issues detectados, falta, duplicados, outliers, rangos; con deshacer) →
-patterns → insights (resumen ejecutivo destacado + todos con
-explicación, patrón asociado y gráficos) → gráficos adicionales →
-descarga del informe **PDF** (diálogo de impresión del navegador), HTML
-y CSV limpio.
+Then open `http://localhost:5500`. This port automatically enables the development configuration, which points API requests to `http://127.0.0.1:8000` (see the script in `index.html`).
 
-Cada tarjeta de insight y cada chart de "Additional charts" tiene un
-**✕** para ocultarlo: los ocultos se guardan en `localStorage` con la
-huella (sha-256) del archivo, se restauran con "Restore all", y el
-PDF/HTML descargado los respeta vía `/report?hide=...` y
-`/report?hide_charts=...` (identidades `visualizationIdentity` de la
-UI, p. ej. `histogram:revenue` o `bar:country:revenue`) para que
-impreso y pantalla coincidan.
+The upload area supports drag-and-drop or file selection. Analysis starts automatically once a file is dropped or selected.
 
-### Deploy (Cloudflare)
+The UI workflow is:
 
-El backend + UI se despliegan como **Worker + Container** en
-Cloudflare (scale-to-zero, un solo origen). Guía completa en
-[`docs/DEPLOY.md`](docs/DEPLOY.md); resumen:
+1. **Overview** — KPIs and column profiles.
+2. **Data quality** — detected quality issues.
+3. **Cleaning** — a drawer with detected issues, missing values, duplicates, outliers, and range problems, with undo support.
+4. **Patterns** — detected patterns in the data.
+5. **Insights** — a highlighted executive summary, followed by individual insights with explanations, associated patterns, and charts.
+6. **Additional charts** — automatically generated visualizations.
+7. **Downloads** — PDF (through the browser's print dialog), HTML report, and cleaned CSV.
+
+Each insight card and each chart under "Additional charts" has an **✕** button to hide it. Hidden items are stored in `localStorage`, keyed by the file's SHA-256 fingerprint, and can be restored using "Restore all".
+
+Downloaded PDF/HTML reports respect these choices through `/report?hide=...` and `/report?hide_charts=...`, using the UI's `visualizationIdentity` identifiers (e.g., `histogram:revenue` or `bar:country:revenue`). This keeps the printed report consistent with the on-screen view.
+
+### Deployment (Cloudflare)
+
+The backend and UI are deployed as a **Cloudflare Worker + Container**, with scale-to-zero behavior and a single origin.
+
+See [`docs/DEPLOY.md`](docs/DEPLOY.md) for the complete deployment guide. To deploy:
 
 ```bash
 npm install && npx wrangler deploy
 ```
 
-### Tests y lint
+### Tests and Linting
 
 ```bash
 uv run pytest -q
 uv run ruff check .
 ```
 
-## Configuración de umbrales
+## Threshold Configuration
 
-Todos los thresholds del análisis (percentiles de selección de
-relaciones, multiplicadores IQR, límites de muestreo de gráficas,
-tamaño del resumen ejecutivo) viven en **`src/config.py`**.
-Los módulos los importan de ahí.
+All analysis thresholds — including relationship-selection percentiles, IQR multipliers, chart-sampling limits, and executive-summary size — are centralized in `src/config.py` and imported by the relevant modules.
 
-## Estructura
+## Project Structure
 
-```
+```text
 src/
-  analyze.py        CLI
-  analysis.py       orquestador del pipeline
-  profiling.py      roles y perfil de columnas
-  quality.py        problemas por columna
-  statistics.py     stats descriptivas
-  distributions.py  histogramas y forma univariada
-  relationships.py  num-num, cat-num, cat-cat
-  aggregations.py   métricas por grupo
-  patterns.py       diferencias de grupos y outliers
-  planner.py        qué analizar y cómo graficarlo
-  insights.py       plantillas de insights + resumen ejecutivo
-  comparative_insights.py  rankings, drivers, nulos
-  curation.py       dedupe y cap de insights (un hallazgo=una tarjeta)
-  temporal.py       tendencia, estacionalidad, huecos, régimen, extremos
-  visualizations.py constructores de gráficas
-  reporting.py      informe HTML (plotly embebido)
-  cleaning.py       transformaciones de limpieza
-  preparation.py    preparación para análisis
-  config.py         umbrales centrales
-  utils_stats.py    utilidades IQR compartidas
+  analyze.py                 CLI
+  analysis.py                Pipeline orchestrator
+  profiling.py               Column roles and profiling
+  quality.py                 Column-level quality issues
+  statistics.py              Descriptive statistics
+  distributions.py           Histograms and univariate distributions
+  relationships.py           Numeric-numeric, categorical-numeric, categorical-categorical
+  aggregations.py             Group-level metrics
+  patterns.py                 Group differences and outliers
+  planner.py                  What to analyze and how to visualize it
+  insights.py                 Insight templates and executive summary
+  comparative_insights.py     Rankings, drivers, and null findings
+  curation.py                 Insight deduplication and caps (one finding = one card)
+  temporal.py                 Trends, seasonality, gaps, regimes, extremes
+  visualizations.py           Chart builders
+  reporting.py                HTML reports with embedded Plotly charts
+  cleaning.py                 Data-cleaning transformations
+  preparation.py              Analysis preparation
+  config.py                   Centralized thresholds
+  utils_stats.py              Shared IQR utilities
 web/
-  backend/          FastAPI
-  frontend/         UI (JS vanilla + Plotly)
-tests/              386 tests
-docs/ROADMAP.md     especificación completa
-docs/PLAN_V2.md     plan de mejora por fases (ejecución)
-docs/PLAN_V3.md     plan de calidad de insights (ejecución)
-docs/DEPLOY.md      deploy en Cloudflare (Worker + Container)
+  backend/                    FastAPI
+  frontend/                   UI (vanilla JavaScript + Plotly)
+tests/                         386 tests
+docs/ROADMAP.md                Full specification
+docs/PLAN_V2.md                Completed improvement plan
+docs/PLAN_V3.md                Ongoing insight-quality improvement plan
+docs/DEPLOY.md                 Cloudflare deployment (Worker + Container)
 ```
 
-## Principios
+## Design Principles
 
-- **Sin ML/LLM**: solo estadística clásica y reglas explícitas.
-- **Sin dependencias pesadas**: pandas, numpy, scipy, plotly, fastapi.
-- **Determinista**: mismos datos → mismos insights (muestreos con
-  `random_state` fijo).
-- **Sin escrituras sobre tus datos**: la limpieza devuelve copias.
+- **No ML/LLMs** — only classical statistics and explicit rules.
+- **Lightweight dependencies** — pandas, NumPy, SciPy, Plotly, and FastAPI.
+- **Deterministic** — the same data produces the same insights, with fixed `random_state` values for sampling.
+- **Non-destructive cleaning** — cleaning operations return copies rather than modifying the original data.
 
-## Estado
+## Status
 
-V2 completa (pipeline + insights comparativos + curación + análisis
-temporal + ML recomendación) y **V3 en curso**: redundancia
-plegada (equivalencias/derivadas), trivialidades suprimidas,
-validez contextual (missingness, significancia práctica), presupuesto
-de insights por familia, resumen ejecutivo narrativo y tarjetas
-enriquecidas (R², ratio extremos, cinco números, cross-links) y
-web cloud-ready (same-origin, límite de upload, `/clean?format=csv`).
-**386 tests**, ruff limpio. La selección de relaciones incluye overrides (piso
-fuerte para pares ≥0.9 y top-N por columna "hueca") porque el
-percentil p75 solo echaba relaciones clásicas en datasets con
-columnas redundantes; validado contra un playground de QA local
-(`explain-my-data-qa`, 16 datasets clásicos + sintéticos con ground
-truth: needs 100/100, claims 59/59, precisión medida 100%).
+**V2 is complete**, covering the analysis pipeline, comparative insights, insight curation, temporal analysis, and ML-based recommendations. **V3 is in progress**, focusing on folding redundant findings (equivalent and derived relationships), suppressing trivial results, contextual validity (missingness and practical significance), per-family insight budgets, a narrative executive summary, and richer insight cards (R², extreme-value ratios, five-number summaries, and cross-links). The web application is also cloud-ready, with same-origin requests, configurable upload limits, and CSV downloads through `/clean?format=csv`.
 
-Ruta de mejora en [`docs/PLAN_V3.md`](docs/PLAN_V3.md) (calidad de
-insights, en curso) y [`docs/PLAN_V2.md`](docs/PLAN_V2.md)
-(completada); visión a largo plazo en
-[`docs/ROADMAP.md`](docs/ROADMAP.md).
+The project currently has **386 tests passing and a clean Ruff lint check**.
+
+Relationship selection includes explicit overrides — a minimum threshold for strong pairs (≥0.9) and top-N selection for otherwise underrepresented columns. This addresses a limitation where relying exclusively on the 75th percentile could exclude well-established relationships in datasets with redundant columns.
+
+These changes were validated against a local QA playground (`explain-my-data-qa`) containing 16 classic and synthetic datasets with known ground truth. Validation results: **100/100 required findings detected, 59/59 claims validated, and 100% measured precision**.
+
+See [`docs/PLAN_V3.md`](docs/PLAN_V3.md) for the ongoing insight-quality improvements, [`docs/PLAN_V2.md`](docs/PLAN_V2.md) for the completed improvements, and [`docs/ROADMAP.md`](docs/ROADMAP.md) for the long-term vision.

@@ -6,9 +6,12 @@
   "containers": [
     {
       "class_name": "ExplainMyData",
-      "image": "./Dockerfile",
-      "max_instances": 1,
-      "instance_type": "basic"
+      "scheduling_policy": "durable_object",
+      "images": {
+        "base": {
+          "dockerfile": "./Dockerfile"
+        }
+      }
     }
   ],
   "durable_objects": {

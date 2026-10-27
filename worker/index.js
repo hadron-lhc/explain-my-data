@@ -1,19 +1,92 @@
-// Worker proxy para Cloudflare Containers (D1).
-// Enruta todas las peticiones al contenedor FastAPI (que a su vez
-// sirve la SPA en el mismo origen). Una sola instancia con
-// scale-to-zero: el primer request de un período en frío tarda
-// mientras el contenedor arranca.
-import { Container } from "@cloudflare/containers";
+import { DurableObject } from "cloudflare:workers";
 
-export class ExplainMyData extends Container {
-  defaultPort = 8000;
-  // Scale-to-zero tras 10 minutos de inactividad ( Workers Paid:
-  // solo se cobra el tiempo con instancias activas).
-  sleepAfter = "10m";
-  // Límite de upload del backend (20MB). CSVs de trabajo <5MB.
-  envVars = {
-    EMD_MAX_UPLOAD_BYTES: "20971520",
-  };
+const PORT = 8000;
+const INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000;
+const HEALTH_TIMEOUT_MS = 30_000;
+const HEALTH_POLL_INTERVAL_MS = 300;
+
+export class ExplainMyData extends DurableObject {
+  constructor(ctx, env) {
+    super(ctx, env);
+
+    if (ctx.container?.running) {
+      void ctx.blockConcurrencyWhile(() =>
+        ctx.container.setInactivityTimeout(INACTIVITY_TIMEOUT_MS)
+      );
+    }
+  }
+
+  async ensureContainer() {
+    const container = this.ctx.container;
+
+    if (!container) {
+      throw new Error("No container is configured for this Durable Object.");
+    }
+
+    if (!container.running) {
+      container.start({
+        image: container.images.base,
+        instance: "standard-1",
+        enableInternet: false,
+        env: {
+          EMD_MAX_UPLOAD_BYTES: "20971520",
+        },
+      });
+
+      await container.setInactivityTimeout(INACTIVITY_TIMEOUT_MS);
+      this.ctx.waitUntil(
+        container.monitor().catch((error) => {
+          console.error("Container stopped:", error);
+        })
+      );
+    }
+
+    return container;
+  }
+
+  async waitForHealth(container) {
+    const port = container.getTcpPort(PORT);
+    const deadline = Date.now() + HEALTH_TIMEOUT_MS;
+    let lastError;
+
+    while (Date.now() < deadline) {
+      try {
+        const response = await port.fetch("http://container/health");
+
+        if (response.ok) {
+          return;
+        }
+      } catch (error) {
+        lastError = error;
+      }
+
+      await new Promise((resolve) =>
+        setTimeout(resolve, HEALTH_POLL_INTERVAL_MS)
+      );
+    }
+
+    throw new Error(
+      `Container did not become healthy: ${lastError?.message ?? "timeout"}`
+    );
+  }
+
+  async fetch(request) {
+    try {
+      const container = await this.ensureContainer();
+      await this.waitForHealth(container);
+
+      const containerUrl = request.url.replace(/^https:/, "http:");
+      return container.getTcpPort(PORT).fetch(containerUrl, request);
+    } catch (error) {
+      console.error("Container request failed:", error);
+      return new Response(
+        `Container unavailable: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        { status: 503 }
+      );
+    }
+  }
 }
 
 export default {
